@@ -141,7 +141,12 @@ async function validateUserWithLaravel(userId, token) {
       environment: process.env.NODE_ENV
     });
 
-    const response = await axios.get(`${laravelApiUrl}/api/v1/auth/me`, axiosConfig);
+    // Add API key to headers for Laravel authentication
+    if (process.env.LARAVEL_API_KEY) {
+      axiosConfig.headers['X-WebSocket-API-Key'] = process.env.LARAVEL_API_KEY;
+    }
+
+    const response = await axios.post(`${laravelApiUrl}/api/websocket-api/verify-user`, {}, axiosConfig);
 
     logger.auth('Laravel API response received', {
       status: response.status,
@@ -231,6 +236,40 @@ function mockUserValidation(userId) {
  */
 async function authMiddleware(socket, next) {
   try {
+    // Development mode: Skip authentication if DISABLE_AUTH is true
+    if (process.env.DISABLE_AUTH === 'true') {
+      const mockUserId = parseInt(process.env.MOCK_USER_ID) || 22;
+      const mockUserRole = process.env.MOCK_USER_ROLE || 'member';
+
+      logger.info('Development mode: Skipping authentication', {
+        socketId: socket.id,
+        mockUserId: mockUserId,
+        mockUserRole: mockUserRole,
+        category: 'auth'
+      });
+
+      // Attach mock user info to socket
+      socket.userId = mockUserId;
+      socket.userEmail = `user${mockUserId}@mechamap.test`;
+      socket.userRole = mockUserRole;
+      socket.userName = `Test User ${mockUserId}`;
+      socket.userPermissions = ['read_notifications', 'receive_notifications'];
+      socket.authToken = 'mock-token';
+      socket.authTime = new Date();
+      socket.tokenType = 'mock';
+
+      logger.info('Authentication successful (development mode)', {
+        userId: mockUserId,
+        role: mockUserRole,
+        socketId: socket.id,
+        tokenType: 'mock',
+        permissions: socket.userPermissions,
+        category: 'auth'
+      });
+
+      return next();
+    }
+
     const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {

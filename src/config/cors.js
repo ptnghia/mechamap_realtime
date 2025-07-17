@@ -1,33 +1,16 @@
 /**
  * CORS Configuration for MechaMap Realtime Server
- * Environment-specific CORS settings for development and production
+ * Auto-detects environment and provides appropriate CORS settings
  */
 
+const { getEnvironmentConfig, getCorsConfig } = require('./environment');
+
 /**
- * Get allowed origins based on environment
+ * Get allowed origins based on auto-detected environment
  */
 function getAllowedOrigins() {
-  const corsOrigin = process.env.CORS_ORIGIN;
-  
-  if (corsOrigin) {
-    return corsOrigin.split(',').map(origin => origin.trim());
-  }
-  
-  // Default origins based on environment
-  if (process.env.NODE_ENV === 'production') {
-    return [
-      'https://mechamap.com',
-      'https://www.mechamap.com'
-    ];
-  } else {
-    return [
-      'https://mechamap.test',
-      'http://localhost:8000',
-      'https://localhost:8000',
-      'http://127.0.0.1:8000',
-      'https://127.0.0.1:8000'
-    ];
-  }
+  const config = getEnvironmentConfig();
+  return config.cors_origins;
 }
 
 /**
@@ -36,12 +19,12 @@ function getAllowedOrigins() {
 const corsConfig = {
   origin: function (origin, callback) {
     const allowedOrigins = getAllowedOrigins();
-    
+
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) {
       return callback(null, true);
     }
-    
+
     // Check if origin is allowed
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -87,7 +70,7 @@ const socketCorsConfig = {
 function corsLogger(req, res, next) {
   const origin = req.get('Origin');
   const allowedOrigins = getAllowedOrigins();
-  
+
   console.log('CORS Request:', {
     origin,
     method: req.method,
@@ -96,7 +79,7 @@ function corsLogger(req, res, next) {
     environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString()
   });
-  
+
   next();
 }
 
@@ -138,14 +121,11 @@ const productionCorsConfig = {
 };
 
 /**
- * Get CORS configuration based on environment
+ * Get CORS configuration based on auto-detected environment
  */
-function getCorsConfig() {
-  if (process.env.NODE_ENV === 'production') {
-    return productionCorsConfig;
-  } else {
-    return developmentCorsConfig;
-  }
+function getAutoDetectedCorsConfig() {
+  const config = getEnvironmentConfig();
+  return getCorsConfig(config);
 }
 
 module.exports = {
@@ -153,7 +133,7 @@ module.exports = {
   socketCorsConfig,
   corsLogger,
   getAllowedOrigins,
-  getCorsConfig,
+  getCorsConfig: getAutoDetectedCorsConfig,
   developmentCorsConfig,
   productionCorsConfig
 };

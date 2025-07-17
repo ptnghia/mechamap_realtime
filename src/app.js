@@ -5,7 +5,7 @@
  * Main application entry point
  */
 
-// Load environment variables based on NODE_ENV
+// Load environment variables with auto-detection
 const path = require('path');
 const fs = require('fs');
 
@@ -30,19 +30,14 @@ function loadEnvironment() {
     require('dotenv').config();
     console.log(`⚠️  Environment file ${envFile} not found, using default .env`);
   }
-
-  // Validate JWT_SECRET
-  if (!process.env.JWT_SECRET ||
-      process.env.JWT_SECRET === 'your_super_secure_jwt_secret_key_here' ||
-      process.env.JWT_SECRET === 'your_super_secure_production_jwt_secret_key_here') {
-    console.warn('⚠️  Warning: Using default JWT secret. Set JWT_SECRET environment variable.');
-  } else {
-    console.log('✅ JWT_SECRET is properly configured');
-  }
 }
 
-// Load environment
+// Load environment first
 loadEnvironment();
+
+// Load environment detection and configuration
+const { loadEnvironmentConfig } = require('./config/environment');
+const environmentConfig = loadEnvironmentConfig();
 const RealtimeServer = require('./server');
 const logger = require('./utils/logger');
 const config = require('./config');
