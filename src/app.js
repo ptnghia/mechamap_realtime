@@ -5,7 +5,44 @@
  * Main application entry point
  */
 
-require('dotenv').config();
+// Load environment variables based on NODE_ENV
+const path = require('path');
+const fs = require('fs');
+
+function loadEnvironment() {
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const rootDir = path.join(__dirname, '..');
+
+  // Determine which .env file to load
+  let envFile = '.env';
+  if (nodeEnv === 'production') {
+    envFile = '.env.production';
+  }
+
+  const envPath = path.join(rootDir, envFile);
+
+  // Check if environment file exists
+  if (fs.existsSync(envPath)) {
+    require('dotenv').config({ path: envPath });
+    console.log(`✅ Loaded environment from: ${envFile}`);
+  } else {
+    // Fallback to default .env
+    require('dotenv').config();
+    console.log(`⚠️  Environment file ${envFile} not found, using default .env`);
+  }
+
+  // Validate JWT_SECRET
+  if (!process.env.JWT_SECRET ||
+      process.env.JWT_SECRET === 'your_super_secure_jwt_secret_key_here' ||
+      process.env.JWT_SECRET === 'your_super_secure_production_jwt_secret_key_here') {
+    console.warn('⚠️  Warning: Using default JWT secret. Set JWT_SECRET environment variable.');
+  } else {
+    console.log('✅ JWT_SECRET is properly configured');
+  }
+}
+
+// Load environment
+loadEnvironment();
 const RealtimeServer = require('./server');
 const logger = require('./utils/logger');
 const config = require('./config');
@@ -46,13 +83,13 @@ async function startServer() {
     logger.info(`Environment: ${config.nodeEnv}`);
     logger.info(`Port: ${config.port}`);
     logger.info(`SSL Enabled: ${config.ssl.enabled}`);
-    
+
     const server = new RealtimeServer();
     await server.start();
-    
+
     logger.info('🚀 MechaMap Realtime Server started successfully!');
     logger.info(`🌐 Server running on ${config.ssl.enabled ? 'https' : 'http'}://localhost:${config.port}`);
-    
+
   } catch (error) {
     logger.error('Failed to start server:', error);
     process.exit(1);
