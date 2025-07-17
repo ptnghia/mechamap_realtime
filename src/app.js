@@ -42,14 +42,23 @@ const RealtimeServer = require('./server');
 const logger = require('./utils/logger');
 const config = require('./config');
 
-// Handle uncaught exceptions
+// Load enhanced utilities
+const errorHandler = require('./utils/errorHandler');
+const performanceMonitor = require('./utils/performanceMonitor');
+
+// Setup enhanced error handling
+errorHandler.setupGlobalHandlers();
+
+// Enhanced error handling (keeping original for compatibility)
 process.on('uncaughtException', (error) => {
+  errorHandler.handleError(error, { source: 'uncaughtException' });
   logger.error('Uncaught Exception:', error);
   process.exit(1);
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  errorHandler.handleError(error, { source: 'unhandledRejection', promise: promise.toString() });
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
 });

@@ -14,12 +14,12 @@ const consoleFormat = winston.format.combine(
   winston.format.colorize(),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
     let log = `${timestamp} [${level}] ${message}`;
-    
+
     // Add metadata if present
     if (Object.keys(meta).length > 0) {
       log += ` ${JSON.stringify(meta)}`;
     }
-    
+
     return log;
   })
 );
@@ -38,7 +38,10 @@ const logger = winston.createLogger({
   defaultMeta: {
     service: 'mechamap-realtime',
     version: require('../../package.json').version,
-    pid: process.pid
+    pid: process.pid,
+    hostname: require('os').hostname(),
+    nodeVersion: process.version,
+    environment: process.env.NODE_ENV || 'development'
   },
   transports: [
     // File transport for all logs
@@ -48,7 +51,7 @@ const logger = winston.createLogger({
       maxFiles: 5,
       tailable: true
     }),
-    
+
     // Separate file for errors
     new winston.transports.File({
       filename: path.join(logsDir, 'error.log'),
@@ -58,14 +61,14 @@ const logger = winston.createLogger({
       tailable: true
     })
   ],
-  
+
   // Handle exceptions and rejections
   exceptionHandlers: [
     new winston.transports.File({
       filename: path.join(logsDir, 'exceptions.log')
     })
   ],
-  
+
   rejectionHandlers: [
     new winston.transports.File({
       filename: path.join(logsDir, 'rejections.log')
@@ -117,7 +120,7 @@ logger.security = (message, meta = {}) => {
 // Request logging middleware
 logger.requestMiddleware = (req, res, next) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     const logData = {
@@ -128,14 +131,14 @@ logger.requestMiddleware = (req, res, next) => {
       userAgent: req.get('User-Agent'),
       ip: req.ip || req.connection.remoteAddress
     };
-    
+
     if (res.statusCode >= 400) {
       logger.warn('HTTP Request', logData);
     } else {
       logger.info('HTTP Request', logData);
     }
   });
-  
+
   next();
 };
 
@@ -152,16 +155,16 @@ logger.socketConnection = (socket, event, data = {}) => {
 // Performance monitoring
 logger.performance.timer = (label) => {
   const start = process.hrtime.bigint();
-  
+
   return {
     end: () => {
       const end = process.hrtime.bigint();
       const duration = Number(end - start) / 1000000; // Convert to milliseconds
-      
+
       logger.performance(`Timer: ${label}`, {
         duration: `${duration.toFixed(2)}ms`
       });
-      
+
       return duration;
     }
   };
@@ -194,7 +197,7 @@ logger.banner = () => {
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
   `;
-  
+
   console.log(banner);
 };
 

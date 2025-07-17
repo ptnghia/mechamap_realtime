@@ -14,6 +14,10 @@ const { authMiddleware } = require('./middleware/auth');
 const MonitoringMiddleware = require('./middleware/monitoring');
 const { getCorsConfig, socketCorsConfig, corsLogger } = require('./config/cors');
 
+// Enhanced utilities
+const errorHandler = require('./utils/errorHandler');
+const performanceMonitor = require('./utils/performanceMonitor');
+
 class RealtimeServer {
   constructor() {
     this.app = express();
@@ -35,6 +39,9 @@ class RealtimeServer {
 
     // Add CORS logging middleware
     this.app.use(corsLogger);
+
+    // Add performance monitoring middleware
+    this.app.use(performanceMonitor.middleware());
 
     // Setup middleware (includes CORS)
     setupMiddleware(this.app);

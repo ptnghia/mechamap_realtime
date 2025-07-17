@@ -1,5 +1,8 @@
 const logger = require('../utils/logger');
 const channelManager = require('./channelManager');
+const connectionManager = require('../services/ConnectionManager');
+const performanceMonitor = require('../utils/performanceMonitor');
+const errorHandler = require('../utils/errorHandler');
 
 /**
  * Handle WebSocket connections and events
@@ -8,7 +11,37 @@ function socketHandler(socket, io, server) {
   const userId = socket.userId;
   const socketId = socket.id;
 
+  // Check connection limits and register connection
+  const connectionResult = connectionManager.addConnection(userId, socket);
+
+  if (!connectionResult.allowed) {
+    logger.warn('Connection rejected', {
+      userId,
+      socketId,
+      reason: connectionResult.reason,
+      message: connectionResult.message
+    });
+
+    // Send rejection message and disconnect
+    socket.emit('connection_rejected', {
+      reason: connectionResult.reason,
+      message: connectionResult.message,
+      existingConnection: connectionResult.existingConnection
+    });
+
+    socket.disconnect(true);
+    return;
+  }
+
   logger.socketConnection(socket, 'connected', {
+    userAgent: socket.handshake.headers['user-agent'],
+    remoteAddress: socket.handshake.address,
+    connectionInfo: connectionResult.connectionInfo
+  });
+
+  // Track WebSocket connection in performance monitor
+  performanceMonitor.trackWebSocketConnection(socketId, 'connected', {
+    userId,
     userAgent: socket.handshake.headers['user-agent'],
     remoteAddress: socket.handshake.address
   });

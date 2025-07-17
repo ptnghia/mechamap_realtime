@@ -27,6 +27,47 @@ function setupRoutes(app, monitoring = null) {
     });
   });
 
+  // Test authentication endpoint
+  apiRouter.post('/test-auth', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
+          success: false,
+          message: 'No token provided'
+        });
+      }
+
+      const token = authHeader.substring(7);
+      const authMiddleware = require('../middleware/auth');
+
+      // Test token validation
+      const result = await authMiddleware.validateJwtToken(token);
+
+      res.json({
+        success: true,
+        message: 'Token validation successful',
+        data: {
+          tokenType: result.type || 'jwt',
+          userId: result.userId || result.user?.id,
+          role: result.role || result.user?.role,
+          permissions: result.permissions || result.user?.permissions,
+          tokenInfo: {
+            iat: result.iat,
+            exp: result.exp,
+            algorithm: 'HS256'
+          }
+        }
+      });
+    } catch (error) {
+      res.status(401).json({
+        success: false,
+        message: 'Token validation failed',
+        error: error.message
+      });
+    }
+  });
+
   // Metrics endpoint (basic implementation)
   apiRouter.get('/metrics', (req, res) => {
     const metrics = {
@@ -143,6 +184,92 @@ function setupRoutes(app, monitoring = null) {
         url: `${config.ssl.enabled ? 'wss' : 'ws'}://localhost:${config.port}`,
         transports: config.websocket.transports
       }
+    });
+  });
+
+  // Connection management endpoints
+  apiRouter.get('/connections/stats', (req, res) => {
+    const connectionManager = require('../services/ConnectionManager');
+    const stats = connectionManager.getStats();
+
+    res.json({
+      success: true,
+      message: 'Connection statistics',
+      data: stats
+    });
+  });
+
+  apiRouter.get('/connections/user/:userId', (req, res) => {
+    const connectionManager = require('../services/ConnectionManager');
+    const { userId } = req.params;
+    const connection = connectionManager.getUserConnection(userId);
+
+    if (!connection) {
+      return res.status(404).json({
+        success: false,
+        message: 'User connection not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'User connection info',
+      data: connection
+    });
+  });
+
+  apiRouter.post('/connections/disconnect/:userId', (req, res) => {
+    const connectionManager = require('../services/ConnectionManager');
+    const { userId } = req.params;
+    const { reason = 'admin_disconnect' } = req.body;
+
+    const disconnected = connectionManager.forceDisconnect(userId, reason);
+
+    if (disconnected) {
+      res.json({
+        success: true,
+        message: 'User disconnected successfully'
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        message: 'User connection not found'
+      });
+    }
+  });
+
+  // Clear all connections (for testing)
+  apiRouter.post('/connections/clear-all', (req, res) => {
+    const connectionManager = require('../services/ConnectionManager');
+    connectionManager.clearAll();
+
+    res.json({
+      success: true,
+      message: 'All connections cleared'
+    });
+  });
+
+  // Performance metrics endpoint
+  apiRouter.get('/performance/metrics', (req, res) => {
+    const performanceMonitor = require('../utils/performanceMonitor');
+    const metrics = performanceMonitor.getMetrics();
+
+    res.json({
+      success: true,
+      message: 'Performance metrics',
+      data: metrics
+    });
+  });
+
+  // Error statistics endpoint
+  apiRouter.get('/errors/stats', (req, res) => {
+    const errorHandler = require('../utils/errorHandler');
+    const stats = errorHandler.getStats();
+
+    res.json({
+      success: true,
+      message: 'Error statistics',
+      data: stats
     });
   });
 
