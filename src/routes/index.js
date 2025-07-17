@@ -4,11 +4,12 @@ const { StatusCodes } = require('http-status-codes');
 const config = require('../config');
 const logger = require('../utils/logger');
 const broadcastRoutes = require('./broadcast');
+const monitoringRoutes = require('./monitoring');
 
 /**
  * Setup Express routes
  */
-function setupRoutes(app) {
+function setupRoutes(app, monitoring = null) {
   logger.info('Setting up Express routes...');
 
   // API routes
@@ -150,6 +151,11 @@ function setupRoutes(app) {
 
   // Mount broadcast routes
   app.use('/api', broadcastRoutes);
+
+  // Mount monitoring routes if monitoring instance is provided
+  if (monitoring) {
+    app.use('/api/monitoring', monitoringRoutes(monitoring));
+  }
 
   // 404 handler - must be last
   app.use('*', (req, res) => {

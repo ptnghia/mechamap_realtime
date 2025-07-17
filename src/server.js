@@ -11,6 +11,7 @@ const setupMiddleware = require('./middleware');
 const setupRoutes = require('./routes');
 const socketHandler = require('./websocket/socketHandler');
 const { authMiddleware } = require('./middleware/auth');
+const MonitoringMiddleware = require('./middleware/monitoring');
 
 class RealtimeServer {
   constructor() {
@@ -19,6 +20,7 @@ class RealtimeServer {
     this.io = null;
     this.connections = new Map();
     this.userConnections = new Map();
+    this.monitoring = new MonitoringMiddleware();
   }
 
   /**
@@ -30,18 +32,16 @@ class RealtimeServer {
     // Setup middleware
     setupMiddleware(this.app);
 
-    // Setup routes
-    setupRoutes(this.app);
+    // Setup routes with monitoring
+    setupRoutes(this.app, this.monitoring);
 
-    // Health check endpoint
+    // Enhanced health check endpoint with monitoring data
     this.app.get('/health', (req, res) => {
-      res.json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
+      const healthStatus = this.monitoring.getHealthStatus();
+      res.status(healthStatus.status === 'healthy' ? 200 : 503).json({
+        ...healthStatus,
         connections: this.connections.size,
         users: this.userConnections.size,
-        memory: process.memoryUsage(),
         version: require('../package.json').version
       });
     });
@@ -100,6 +100,7 @@ class RealtimeServer {
 
     // Debug Socket.IO events
     this.io.engine.on('connection_error', (err) => {
+      this.monitoring.trackConnectionFailure(err.message, err.req?.socketId);
       logger.error('Socket.IO connection error:', {
         req: err.req && {
           url: err.req.url,
@@ -112,8 +113,22 @@ class RealtimeServer {
       });
     });
 
-    // Authentication middleware
-    this.io.use(authMiddleware);
+    // Authentication middleware with monitoring
+    this.io.use(async (socket, next) => {
+      const startTime = Date.now();
+      try {
+        await authMiddleware(socket, next);
+        // Track successful authentication
+        this.monitoring.trackAuthentication(true, socket.tokenType || 'unknown', socket.userId);
+        this.monitoring.trackResponseTime(startTime, 'auth');
+      } catch (error) {
+        // Track failed authentication
+        this.monitoring.trackAuthentication(false, 'unknown', null);
+        this.monitoring.trackError(error, { context: 'authentication', socketId: socket.id });
+        this.monitoring.trackResponseTime(startTime, 'auth');
+        throw error;
+      }
+    });
 
     // Connection handler
     this.io.on('connection', (socket) => {
@@ -129,11 +144,16 @@ class RealtimeServer {
   handleConnection(socket) {
     const userId = socket.userId;
     const socketId = socket.id;
+    const userRole = socket.userRole || 'unknown';
+
+    // Track connection in monitoring
+    this.monitoring.trackConnection(socketId, userId, userRole);
 
     // Track connection
     this.connections.set(socketId, {
       socket,
       userId,
+      userRole,
       connectedAt: new Date(),
       lastActivity: new Date()
     });
@@ -147,6 +167,7 @@ class RealtimeServer {
     logger.info(`User connected: ${userId}`, {
       userId,
       socketId,
+      userRole,
       totalConnections: this.connections.size,
       userConnections: this.userConnections.get(userId).size
     });
@@ -166,6 +187,10 @@ class RealtimeServer {
   handleDisconnection(socket, reason) {
     const userId = socket.userId;
     const socketId = socket.id;
+    const userRole = socket.userRole || 'unknown';
+
+    // Track disconnection in monitoring
+    this.monitoring.trackDisconnection(socketId, userId, userRole, reason);
 
     // Remove connection tracking
     this.connections.delete(socketId);
@@ -182,6 +207,7 @@ class RealtimeServer {
     logger.info(`User disconnected: ${userId}`, {
       userId,
       socketId,
+      userRole,
       reason,
       totalConnections: this.connections.size,
       remainingUserConnections: this.userConnections.has(userId)

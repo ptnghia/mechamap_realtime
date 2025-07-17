@@ -1,7 +1,7 @@
 {
   "name": "mechamap-realtime-server",
   "version": "1.0.0",
-  "description": "Node.js WebSocket server for MechaMap real-time notifications",
+  "description": "Real-time WebSocket server for MechaMap with Laravel Sanctum integration and advanced monitoring",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
@@ -20,7 +20,10 @@
     "pm2:restart": "pm2 restart mechamap-realtime",
     "pm2:logs": "pm2 logs mechamap-realtime",
     "ssl:generate": "node scripts/generate-ssl-certs.js",
-    "health": "curl -f https://localhost:3000/health || exit 1"
+    "health": "curl -f http://localhost:3000/api/health || exit 1",
+    "health:monitoring": "curl -f http://localhost:3000/api/monitoring/health || exit 1",
+    "metrics": "curl -s http://localhost:3000/api/monitoring/metrics | jq",
+    "prometheus": "curl -s http://localhost:3000/api/monitoring/prometheus"
   },
   "keywords": [
     "websocket",
@@ -29,6 +32,9 @@
     "notifications",
     "mechamap",
     "laravel",
+    "sanctum",
+    "monitoring",
+    "prometheus",
     "nodejs"
   ],
   "author": "MechaMap Development Team",
@@ -51,7 +57,8 @@
     "express-validator": "^7.0.1",
     "http-status-codes": "^2.3.0",
     "moment": "^2.29.4",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "prom-client": "^15.1.0"
   },
   "devDependencies": {
     "jest": "^29.7.0",
@@ -65,7 +72,8 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^6.1.1",
     "@types/jest": "^29.5.8",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "playwright": "^1.40.0"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -73,10 +81,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mechamap/realtime-server.git"
+    "url": "https://github.com/ptnghia/mechamap_realtime.git"
   },
   "bugs": {
-    "url": "https://github.com/mechamap/realtime-server/issues"
+    "url": "https://github.com/ptnghia/mechamap_realtime.git/issues"
   },
   "homepage": "https://realtime.mechamap.com",
   "jest": {
