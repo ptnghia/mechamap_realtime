@@ -91,6 +91,16 @@ async function validateToken(token) {
 }
 
 /**
+ * Get Laravel API URL based on environment
+ */
+function getLaravelApiUrl() {
+  const laravelUrl = process.env.LARAVEL_API_URL || 'https://mechamap.test';
+
+  // Ensure URL doesn't end with slash
+  return laravelUrl.replace(/\/$/, '');
+}
+
+/**
  * Validate user with Laravel backend
  */
 async function validateUserWithLaravel(userId, token) {
@@ -100,7 +110,10 @@ async function validateUserWithLaravel(userId, token) {
     const cached = tokenCache.get(cacheKey);
 
     if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-      logger.auth('User validation from cache', { userId: cached.user.id });
+      logger.auth('User validation from cache', {
+        userId: cached.user.id,
+        environment: process.env.NODE_ENV
+      });
       return cached.user;
     }
 
@@ -122,7 +135,13 @@ async function validateUserWithLaravel(userId, token) {
       });
     }
 
-    const response = await axios.get(`${config.laravel.apiUrl}/api/v1/auth/me`, axiosConfig);
+    const laravelApiUrl = getLaravelApiUrl();
+    logger.auth('Validating with Laravel API', {
+      laravelApiUrl,
+      environment: process.env.NODE_ENV
+    });
+
+    const response = await axios.get(`${laravelApiUrl}/api/v1/auth/me`, axiosConfig);
 
     logger.auth('Laravel API response received', {
       status: response.status,

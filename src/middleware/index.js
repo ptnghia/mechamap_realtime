@@ -7,6 +7,7 @@ const { StatusCodes } = require('http-status-codes');
 
 const config = require('../config');
 const logger = require('../utils/logger');
+const { getCorsConfig } = require('../config/cors');
 
 /**
  * Setup Express middleware
@@ -52,29 +53,16 @@ function setupMiddleware(app) {
     }));
   }
 
-  // CORS configuration
-  app.use(cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
+  // CORS configuration - Environment-specific
+  const corsOptions = getCorsConfig();
 
-      if (config.cors.allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+  logger.info('Setting up CORS middleware', {
+    environment: process.env.NODE_ENV,
+    origins: Array.isArray(corsOptions.origin) ? corsOptions.origin : 'dynamic',
+    credentials: corsOptions.credentials
+  });
 
-      // In development, allow localhost with any port
-      if (config.nodeEnv === 'development' && origin.includes('localhost')) {
-        return callback(null, true);
-      }
-
-      logger.security('CORS blocked origin', { origin });
-      return callback(new Error('Not allowed by CORS'), false);
-    },
-    credentials: config.cors.credentials,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['X-Total-Count', 'X-Page-Count']
-  }));
+  app.use(cors(corsOptions));
 
   // Rate limiting
   const limiter = rateLimit({

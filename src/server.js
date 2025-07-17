@@ -12,6 +12,7 @@ const setupRoutes = require('./routes');
 const socketHandler = require('./websocket/socketHandler');
 const { authMiddleware } = require('./middleware/auth');
 const MonitoringMiddleware = require('./middleware/monitoring');
+const { getCorsConfig, socketCorsConfig, corsLogger } = require('./config/cors');
 
 class RealtimeServer {
   constructor() {
@@ -27,9 +28,15 @@ class RealtimeServer {
    * Initialize Express application
    */
   setupExpress() {
-    logger.info('Setting up Express application...');
+    logger.info('Setting up Express application...', {
+      environment: process.env.NODE_ENV,
+      corsOrigins: process.env.CORS_ORIGIN
+    });
 
-    // Setup middleware
+    // Add CORS logging middleware
+    this.app.use(corsLogger);
+
+    // Setup middleware (includes CORS)
     setupMiddleware(this.app);
 
     // Setup routes with monitoring
