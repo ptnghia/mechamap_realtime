@@ -1,0 +1,116 @@
+{
+  "name": "mechamap-realtime-server",
+  "version": "1.0.0",
+  "description": "Node.js WebSocket server for MechaMap real-time notifications",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest --testPathPattern=tests/integration",
+    "test:unit": "jest --testPathPattern=tests/unit",
+    "test:load": "artillery run tests/load/websocket-load.yml",
+    "lint": "eslint src/ tests/",
+    "lint:fix": "eslint src/ tests/ --fix",
+    "build": "echo 'No build step required for Node.js'",
+    "pm2:start": "pm2 start deployment/pm2/ecosystem.config.js",
+    "pm2:stop": "pm2 stop mechamap-realtime",
+    "pm2:restart": "pm2 restart mechamap-realtime",
+    "pm2:logs": "pm2 logs mechamap-realtime",
+    "ssl:generate": "node scripts/generate-ssl-certs.js",
+    "health": "curl -f https://localhost:3000/health || exit 1"
+  },
+  "keywords": [
+    "websocket",
+    "socket.io",
+    "real-time",
+    "notifications",
+    "mechamap",
+    "laravel",
+    "nodejs"
+  ],
+  "author": "MechaMap Development Team",
+  "license": "MIT",
+  "dependencies": {
+    "socket.io": "^4.7.5",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "redis": "^4.6.10",
+    "mysql2": "^3.6.5",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "winston": "^3.11.0",
+    "dotenv": "^16.3.1",
+    "joi": "^17.11.0",
+    "axios": "^1.6.2",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "express-validator": "^7.0.1",
+    "http-status-codes": "^2.3.0",
+    "moment": "^2.29.4",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "socket.io-client": "^4.7.5",
+    "artillery": "^2.0.3",
+    "nodemon": "^3.0.2",
+    "eslint": "^8.55.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "@types/jest": "^29.5.8",
+    "cross-env": "^7.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mechamap/realtime-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mechamap/realtime-server/issues"
+  },
+  "homepage": "https://realtime.mechamap.com",
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/app.js",
+      "!src/config/*.js"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.js"
+    ]
+  },
+  "eslintConfig": {
+    "extends": [
+      "standard"
+    ],
+    "env": {
+      "node": true,
+      "jest": true
+    },
+    "rules": {
+      "no-console": "warn",
+      "prefer-const": "error",
+      "no-unused-vars": "error"
+    }
+  }
+}
