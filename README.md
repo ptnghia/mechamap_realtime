@@ -1,282 +1,268 @@
 # MechaMap Realtime Server
 
-Node.js WebSocket server cho hệ thống real-time notification của MechaMap.
+Server WebSocket thời gian thực được xây dựng bằng Node.js cho ứng dụng MechaMap. Server này xử lý thông báo thời gian thực, trạng thái người dùng và cập nhật trực tiếp sử dụng Socket.IO.
 
-## 🚀 Tính năng
+## 🚀 Tính năng chính
 
-- **WebSocket Server**: Socket.IO với SSL/TLS support
-- **JWT Authentication**: Tích hợp với Laravel Sanctum backend
-- **Channel Management**: Private user channels với authorization
-- **Real-time Broadcasting**: Instant notification delivery
-- **Laravel Integration**: REST API cho notification broadcasting
-- **Advanced Monitoring**: Real-time metrics, health checks, alerting system
-- **Prometheus Integration**: Metrics export cho external monitoring tools
-- **Comprehensive Testing**: Unit tests, integration tests, load testing
-- **Production Ready**: PM2 clustering, monitoring, health checks
+- **Giao tiếp WebSocket thời gian thực**: Xây dựng với Socket.IO cho việc nhắn tin thời gian thực đáng tin cậy
+- **Tích hợp Laravel**: Tích hợp liền mạch với Laravel backend sử dụng Sanctum authentication
+- **Hỗ trợ đa thiết bị**: Người dùng có thể kết nối từ nhiều thiết bị cùng lúc
+- **Nhắn tin theo kênh**: Kênh người dùng riêng tư và khả năng broadcast
+- **Giám sát toàn diện**: Health checks tích hợp, metrics và giám sát hiệu suất
+- **Sẵn sàng Production**: PM2 clustering, hỗ trợ SSL và xử lý lỗi mạnh mẽ
+- **Bảo mật**: Bảo vệ CORS, rate limiting và authentication middleware
 
-## 📋 Yêu cầu hệ thống
+## ⚡ Bắt đầu nhanh
+
+### Yêu cầu hệ thống
 
 - Node.js >= 18.0.0
-- npm >= 8.0.0
-- MySQL database (shared với Laravel)
-- Redis server (optional, cho caching)
-- SSL certificates (Let's Encrypt cho production)
+- npm hoặc yarn
+- MySQL database (chia sẻ với Laravel backend)
+- Redis (tùy chọn, cho caching)
 
-## 🛠️ Cài đặt
+### Cài đặt từ GitHub
 
-### 1. Clone và setup
+1. Clone repository:
 ```bash
-cd mechamap_backend/realtime-server
+git clone https://github.com/ptnghia/mechamap_realtime.git
+cd mechamap_realtime
+```
+
+2. Cài đặt dependencies:
+```bash
 npm install
 ```
 
-### 2. Cấu hình environment
+3. Cấu hình môi trường:
 ```bash
 cp .env.example .env
-# Chỉnh sửa .env với thông tin database và JWT secret
+# Chỉnh sửa file .env theo cấu hình của bạn
 ```
 
-### 3. Tạo SSL certificates cho development
-```bash
-npm run ssl:generate
-```
-
-### 4. Khởi chạy server
+4. Khởi động server:
 ```bash
 # Development mode
 npm run dev
 
 # Production mode
-npm start
+npm run start
 ```
 
-## 🔧 Configuration
+## 📁 Cấu trúc dự án
 
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Environment mode | `development` |
-| `PORT` | Server port | `3000` |
-| `SSL_ENABLED` | Enable HTTPS/WSS | `true` |
-| `DB_HOST` | MySQL host | `localhost` |
-| `DB_NAME` | Database name | `mechamap_backend` |
-| `JWT_SECRET` | JWT secret key | Required |
-| `LARAVEL_API_URL` | Laravel backend URL | Required |
-| `ADMIN_KEY` | Admin key cho monitoring endpoints | Optional |
-| `REDIS_HOST` | Redis host cho caching | Optional |
-| `REDIS_PORT` | Redis port | `6379` |
-
-### SSL Configuration
-
-**Development:**
-- Self-signed certificates trong `deployment/ssl/`
-- Tự động generate với `npm run ssl:generate`
-
-**Production:**
-- Let's Encrypt certificates
-- Path: `/etc/letsencrypt/live/realtime.mechamap.com/`
-
-## 🧪 Testing
-
-```bash
-# Chạy tất cả tests
-npm test
-
-# Unit tests
-npm run test:unit
-
-# Integration tests
-npm run test:integration
-
-# Load testing
-npm run test:load
-
-# Test coverage
-npm run test:coverage
+```
+mechamap_realtime/
+├── src/                          # Mã nguồn chính
+│   ├── config/                   # File cấu hình
+│   │   └── index.js             # Cấu hình chính
+│   ├── middleware/              # Express middleware
+│   │   ├── auth.js              # Authentication middleware
+│   │   ├── cors.js              # CORS configuration
+│   │   ├── monitoring.js        # Monitoring middleware
+│   │   └── rateLimiter.js       # Rate limiting
+│   ├── routes/                  # API routes
+│   │   ├── api.js               # API endpoints chính
+│   │   ├── broadcast.js         # Broadcasting endpoints
+│   │   └── monitoring.js        # Monitoring endpoints
+│   ├── services/                # Business logic
+│   │   ├── authService.js       # Authentication service
+│   │   ├── broadcastService.js  # Broadcasting service
+│   │   └── monitoringService.js # Monitoring service
+│   ├── utils/                   # Utility functions
+│   │   ├── logger.js            # Logging utility
+│   │   └── validator.js         # Validation helpers
+│   ├── websocket/               # WebSocket handlers
+│   │   ├── channelManager.js    # Channel management
+│   │   └── socketHandler.js     # Socket event handlers
+│   ├── app.js                   # Application entry point
+│   └── server.js                # Server setup
+├── scripts/                     # Deployment scripts
+│   └── start-production.sh      # Production startup script
+├── docs/                        # Tài liệu
+│   ├── API.md                   # API documentation
+│   ├── DEPLOYMENT.md            # Hướng dẫn deployment
+│   └── MONITORING.md            # Hướng dẫn monitoring
+├── logs/                        # Log files
+├── .env.example                 # Environment template
+├── .env.production              # Production environment
+├── ecosystem.config.js          # PM2 configuration
+├── package.json                 # Dependencies và scripts
+├── test-system.sh              # System testing script
+└── README.md                   # File này
 ```
 
-## 📊 Monitoring & Metrics
+## ⚙️ Cấu hình
 
-### Health Check Endpoints
-```bash
-# Basic health check
-curl http://localhost:3000/api/health
+### Biến môi trường quan trọng
 
-# Comprehensive health check với monitoring data
-curl http://localhost:3000/api/monitoring/health
+File `.env` cho development:
+
+```env
+# Cấu hình Server
+NODE_ENV=development
+PORT=3000
+HOST=0.0.0.0
+
+# Cấu hình Database
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=mechamap
+DB_USER=root
+DB_PASSWORD=your_password
+
+# Tích hợp Laravel
+LARAVEL_API_URL=https://mechamap.com
+LARAVEL_API_KEY=your-api-key
+
+# Cấu hình JWT
+JWT_SECRET=your-jwt-secret
+JWT_EXPIRES_IN=1h
+
+# Cấu hình CORS
+CORS_ORIGIN=https://mechamap.com
+CORS_CREDENTIALS=true
 ```
 
-### Metrics Endpoints
+File `.env.production` cho production:
+- `NODE_ENV=production`
+- `SSL_ENABLED=false` (SSL được xử lý bởi reverse proxy)
+- Cấu hình database production
+- CORS cho domain production
+
+## 🔌 API Endpoints
+
+### Health & Status
+- `GET /` - Thông tin server cơ bản
+- `GET /api/health` - Health check endpoint
+- `GET /api/status` - Thông tin trạng thái server
+- `GET /api/metrics` - Metrics cơ bản
+
+### Monitoring
+- `GET /api/monitoring/health` - Thông tin health chi tiết
+- `GET /api/monitoring/metrics` - Performance metrics
+- `GET /api/monitoring/performance` - Thống kê hiệu suất
+- `GET /api/monitoring/connections` - Thông tin kết nối
+- `GET /api/monitoring/info` - Thông tin hệ thống
+
+### Broadcasting
+- `POST /api/broadcast` - Gửi tin nhắn đến channels (yêu cầu authentication)
+
+## 🌐 WebSocket Events
+
+### Client Events (từ client gửi lên server)
+- `connection` - Client kết nối đến server
+- `disconnect` - Client ngắt kết nối
+- `join-channel` - Tham gia kênh riêng tư
+- `leave-channel` - Rời khỏi kênh
+
+### Server Events (từ server gửi xuống client)
+- `notification` - Nhận thông báo
+- `user-status` - Cập nhật trạng thái người dùng
+- `channel-message` - Tin nhắn theo kênh cụ thể
+
+## 🛠️ Development
+
+### Chạy ở chế độ Development
+
 ```bash
-# Basic metrics
-curl http://localhost:3000/api/metrics
-
-# Detailed monitoring metrics
-curl http://localhost:3000/api/monitoring/metrics
-
-# Performance summary
-curl http://localhost:3000/api/monitoring/performance
-
-# Connection statistics
-curl http://localhost:3000/api/monitoring/connections
-
-# Active alerts
-curl http://localhost:3000/api/monitoring/alerts
-
-# Prometheus-compatible metrics
-curl http://localhost:3000/api/monitoring/prometheus
-```
-
-### Admin Endpoints (Require ADMIN_KEY)
-```bash
-# Reset metrics
-curl -X POST http://localhost:3000/api/monitoring/reset \
-  -H "X-Admin-Key: your-admin-key"
-
-# Update alert thresholds
-curl -X PUT http://localhost:3000/api/monitoring/thresholds \
-  -H "X-Admin-Key: your-admin-key" \
-  -H "Content-Type: application/json" \
-  -d '{"connections": {"max": 1000}, "responseTime": {"max": 500}}'
-```
-
-### Real-time Monitoring Features
-- **Connection Tracking**: Total, active, peak connections by user role
-- **Authentication Metrics**: Success/failure rates by method (Sanctum, JWT)
-- **Performance Monitoring**: Response times, request counts, error rates
-- **Channel Monitoring**: Subscriptions, message delivery rates
-- **Alert System**: Configurable thresholds với real-time notifications
-- **Health Checks**: Automated system health monitoring
-
-### PM2 Monitoring
-```bash
-npm run pm2:logs
-pm2 monit
-```
-
-## 🚀 Deployment
-
-### Development
-```bash
+# Sử dụng nodemon cho auto-reload
 npm run dev
+
+# Hoặc chạy trực tiếp
+node src/app.js
 ```
 
-### Production với PM2
+### Testing hệ thống
+
 ```bash
-npm run pm2:start
+# Chạy test script tổng hợp
+./test-system.sh
+
+# Test bằng cURL
+curl -s https://realtime.mechamap.com/api/health
 ```
 
-### Docker
+## 🚀 Production Deployment
+
+### Sử dụng PM2 (Khuyến nghị)
+
+1. Cài đặt PM2 globally:
 ```bash
-docker build -t mechamap-realtime .
-docker run -p 3000:3000 mechamap-realtime
+npm install -g pm2
 ```
 
-## 📡 API Endpoints
-
-### WebSocket Events
-
-**Client → Server:**
-- `subscribe`: Subscribe to channel
-- `unsubscribe`: Unsubscribe from channel
-- `notification_read`: Mark notification as read
-- `ping`: Heartbeat
-
-**Server → Client:**
-- `subscribed`: Subscription confirmation
-- `notification.sent`: New notification
-- `notification.read`: Notification read by other device
-- `pong`: Heartbeat response
-
-### REST API
-
-**POST /api/broadcast**
-```json
-{
-  "channel": "private-user.123",
-  "event": "notification.sent",
-  "data": {
-    "title": "New Notification",
-    "message": "You have a new message"
-  },
-  "auth_token": "laravel-sanctum-token"
-}
+2. Khởi động với PM2:
+```bash
+pm2 start ecosystem.config.js --env production
 ```
 
-**GET /api/health** - Basic health check
-**GET /api/status** - Server status information
-**GET /api/metrics** - Basic server metrics
-
-### Monitoring API
-
-**GET /api/monitoring/health** - Comprehensive health check
-**GET /api/monitoring/metrics** - Detailed monitoring metrics
-**GET /api/monitoring/performance** - Performance summary
-**GET /api/monitoring/connections** - Connection statistics
-**GET /api/monitoring/alerts** - Active alerts
-**GET /api/monitoring/prometheus** - Prometheus metrics format
-**GET /api/monitoring/info** - Server information
-
-**POST /api/monitoring/reset** - Reset metrics (Admin only)
-**PUT /api/monitoring/thresholds** - Update alert thresholds (Admin only)
-
-## 🔐 Security
-
-- **Laravel Sanctum Integration**: Seamless authentication với Laravel backend
-- **JWT Token Support**: Fallback authentication method
-- **CORS Protection**: Configurable cross-origin resource sharing
-- **Rate Limiting**: Request throttling để prevent abuse
-- **Helmet Security Headers**: Comprehensive HTTP security headers
-- **SSL/TLS Encryption**: HTTPS/WSS support với Let's Encrypt
-- **Input Validation**: Express-validator cho API endpoints
-- **Admin Authentication**: Secure admin endpoints với API keys
-
-## 📁 Cấu trúc thư mục
-
-```
-realtime-server/
-├── src/
-│   ├── config/          # Configuration files
-│   ├── middleware/      # Express middleware & monitoring
-│   │   ├── auth.js      # Authentication middleware
-│   │   ├── monitoring.js # Real-time monitoring system
-│   │   └── index.js     # Middleware setup
-│   ├── websocket/       # WebSocket handlers
-│   ├── services/        # Business logic services
-│   ├── integrations/    # External integrations (Laravel)
-│   ├── utils/           # Utility functions & logger
-│   ├── routes/          # REST API routes
-│   │   ├── index.js     # Main routes
-│   │   ├── broadcast.js # Broadcasting endpoints
-│   │   └── monitoring.js # Monitoring API endpoints
-│   ├── app.js           # Application entry point
-│   └── server.js        # Server setup & configuration
-├── tests/               # Test suites
-│   ├── unit/            # Unit tests
-│   ├── integration/     # Integration tests
-│   └── load/            # Load testing
-├── deployment/          # Deployment configs
-│   ├── pm2/             # PM2 configurations
-│   ├── nginx/           # Nginx configurations
-│   └── ssl/             # SSL certificates
-├── docs/                # Documentation
-└── logs/                # Application logs
+3. Giám sát:
+```bash
+pm2 status          # Xem trạng thái
+pm2 logs            # Xem logs
+pm2 monit           # Monitor real-time
+pm2 restart all     # Restart tất cả processes
 ```
 
-## 🤝 Contributing
+### Cấu hình SSL
 
-1. Fork the repository
-2. Create feature branch
-3. Write tests
-4. Submit pull request
+Đối với hỗ trợ HTTPS/WSS, cấu hình SSL trong environment:
+
+```env
+SSL_ENABLED=true
+SSL_CERT_PATH=/path/to/cert.pem
+SSL_KEY_PATH=/path/to/key.pem
+```
+
+**Lưu ý**: Trong production hiện tại, SSL được xử lý bởi reverse proxy, nên `SSL_ENABLED=false`.
+
+## 📊 Giám sát (Monitoring)
+
+Server bao gồm khả năng giám sát toàn diện:
+
+- **Health Checks**: Giám sát health tự động với ngưỡng có thể cấu hình
+- **Metrics Collection**: Performance metrics thời gian thực
+- **Connection Tracking**: Theo dõi số lượng kết nối WebSocket
+- **Error Monitoring**: Theo dõi và báo cáo lỗi
+
+Truy cập monitoring endpoints:
+- Health: `https://realtime.mechamap.com/api/monitoring/health`
+- Metrics: `https://realtime.mechamap.com/api/monitoring/metrics`
+- Performance: `https://realtime.mechamap.com/api/monitoring/performance`
+
+## 🏗️ Kiến trúc hệ thống
+
+Server chạy ở chế độ **cluster mode** với 2 instances để đảm bảo:
+- **Load balancing**: Phân tải tự động
+- **High availability**: Độ tin cậy cao
+- **Zero downtime**: Không gián đoạn khi restart
+
+## 🔗 Production URLs
+
+- **Main Server**: https://realtime.mechamap.com/
+- **Health Check**: https://realtime.mechamap.com/api/health
+- **WebSocket**: wss://realtime.mechamap.com/socket.io/
+
+## 📚 Tài liệu chi tiết
+
+- [API Documentation](docs/API.md) - Chi tiết về các API endpoints
+- [Deployment Guide](docs/DEPLOYMENT.md) - Hướng dẫn deployment chi tiết
+- [Monitoring Guide](docs/MONITORING.md) - Hướng dẫn giám sát và maintenance
+
+## 🤝 Đóng góp
+
+1. Fork repository
+2. Tạo feature branch
+3. Thực hiện thay đổi
+4. Thêm tests cho tính năng mới
+5. Đảm bảo tất cả tests pass
+6. Submit pull request
 
 ## 📄 License
 
-MIT License - see LICENSE file for details.
+Dự án này được cấp phép theo MIT License - xem file LICENSE để biết chi tiết.
 
-## 🆘 Support
+## 🆘 Hỗ trợ
 
-- Documentation: `./docs/`
-- Issues: GitHub Issues
-- Email: dev@mechamap.com
+Để được hỗ trợ và đặt câu hỏi, vui lòng liên hệ team phát triển hoặc tạo issue trong repository.

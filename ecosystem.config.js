@@ -16,16 +16,16 @@ module.exports = {
     },
 
     // Load environment file based on NODE_ENV
-    env_file: '.env',
+    env_file: '.env.production',
 
     // Monitoring
     monitoring: true,
     pmx: true,
 
     // Auto-restart configuration
-    max_memory_restart: '1G',
+    max_memory_restart: '2G',
     min_uptime: '10s',
-    max_restarts: 10,
+    max_restarts: 15,
     autorestart: true,
     watch: false,
 
@@ -40,7 +40,7 @@ module.exports = {
     listen_timeout: 3000,
 
     // Environment-specific settings
-    node_args: '--max-old-space-size=2048',
+    node_args: '--max-old-space-size=4096',
 
     // Health monitoring
     health_check_grace_period: 3000,
@@ -48,7 +48,10 @@ module.exports = {
 
     // Production-specific settings
     merge_logs: true,
-    time: true
+    time: true,
+
+    // Error handling
+    exp_backoff_restart_delay: 100
   }],
 
   deploy: {

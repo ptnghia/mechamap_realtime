@@ -1,447 +1,585 @@
-# MechaMap Realtime Server - Monitoring System
+# Hướng dẫn Monitoring - MechaMap Realtime Server
 
-Hệ thống monitoring toàn diện cho MechaMap Realtime Server với real-time metrics, health checks, và alerting system.
+Tài liệu này cung cấp hướng dẫn chi tiết về cách giám sát và maintain MechaMap Realtime Server trong môi trường production.
 
-## 🎯 Tổng quan
+## 📊 Tổng quan Monitoring
 
-Monitoring system cung cấp:
-- **Real-time Metrics**: Connection, authentication, performance tracking
-- **Health Monitoring**: Automated health checks với configurable thresholds
-- **Alert System**: Real-time alerts khi có issues
-- **Prometheus Integration**: Export metrics cho external monitoring tools
-- **Admin Interface**: Secure admin endpoints cho management
+MechaMap Realtime Server cung cấp hệ thống monitoring toàn diện bao gồm:
+- **Health Checks**: Kiểm tra sức khỏe hệ thống tự động
+- **Performance Metrics**: Theo dõi hiệu suất real-time
+- **Connection Monitoring**: Giám sát WebSocket connections
+- **Error Tracking**: Theo dõi và báo cáo lỗi
+- **Resource Usage**: Giám sát CPU, memory, disk
 
-## 📊 Metrics được theo dõi
+## 🏥 Health Checks
 
-### Connection Metrics
-- **Total Connections**: Tổng số connections từ khi server start
-- **Active Connections**: Số connections hiện tại đang active
-- **Peak Connections**: Số connections cao nhất đã đạt được
-- **Connections by Role**: Phân loại theo user role (admin, member, guest, etc.)
-- **Failed Connections**: Số connections thất bại
+### Basic Health Check
 
-### Authentication Metrics
-- **Successful Authentications**: Số lần authentication thành công
-- **Failed Authentications**: Số lần authentication thất bại
-- **Authentication by Method**: Phân loại theo method (Sanctum, JWT)
-- **Authentication Rate**: Tỷ lệ thành công/thất bại
+**Endpoint:** `GET /api/health`
 
-### Performance Metrics
-- **Average Response Time**: Thời gian response trung bình
-- **Total Requests**: Tổng số HTTP requests
-- **Slow Requests**: Số requests có response time > threshold
-- **Error Rate**: Tỷ lệ lỗi requests
-- **Uptime**: Thời gian server đã chạy
-
-### Message & Channel Metrics
-- **Messages Sent**: Số messages đã gửi
-- **Messages Received**: Số messages đã nhận
-- **Failed Messages**: Số messages gửi thất bại
-- **Channel Subscriptions**: Số subscriptions hiện tại
-- **Channels by Type**: Phân loại channels (private, public)
-
-### Notification Metrics
-- **Notifications Sent**: Số notifications đã gửi
-- **Notifications Delivered**: Số notifications đã deliver thành công
-- **Failed Notifications**: Số notifications gửi thất bại
-- **Notification Types**: Phân loại theo type
-
-### Server Metrics
-- **Memory Usage**: RAM usage (RSS, heap, external)
-- **CPU Usage**: CPU utilization
-- **Node.js Version**: Version information
-- **Platform Info**: OS platform và architecture
-
-## 🔍 Health Checks
-
-### Automated Health Checks
-System tự động kiểm tra:
-
-1. **Connection Health**
-   - Threshold: > 1000 active connections = Warning
-   - Threshold: > 5000 active connections = Critical
-
-2. **Response Time Health**
-   - Threshold: > 500ms average = Warning
-   - Threshold: > 1000ms average = Critical
-
-3. **Error Rate Health**
-   - Threshold: > 5% error rate = Warning
-   - Threshold: > 10% error rate = Critical
-
-4. **Memory Health**
-   - Threshold: > 80% heap usage = Warning
-   - Threshold: > 90% heap usage = Critical
-
-5. **Uptime Health**
-   - Threshold: < 1 hour = Warning (recent restart)
-
-### Health Status Levels
-- **Healthy**: Tất cả checks pass
-- **Warning**: Một hoặc nhiều checks ở warning level
-- **Critical**: Một hoặc nhiều checks ở critical level
-- **Unknown**: Không thể determine health status
-
-## 🚨 Alert System
-
-### Alert Types
-1. **Connection Alerts**
-   - High connection count
-   - Connection failure spike
-   - Unusual disconnection patterns
-
-2. **Performance Alerts**
-   - High response time
-   - High error rate
-   - Memory usage spikes
-
-3. **Authentication Alerts**
-   - Authentication failure spike
-   - Suspicious authentication patterns
-
-4. **System Alerts**
-   - Server restart
-   - Configuration changes
-   - Critical errors
-
-### Alert Severity Levels
-- **Info**: Informational messages
-- **Warning**: Issues cần attention
-- **Error**: Serious issues cần immediate action
-- **Critical**: System-threatening issues
-
-### Alert Configuration
-```javascript
-const alertThresholds = {
-  connections: {
-    max: 1000,        // Warning threshold
-    critical: 5000    // Critical threshold
-  },
-  responseTime: {
-    max: 500,         // Warning threshold (ms)
-    critical: 1000    // Critical threshold (ms)
-  },
-  errorRate: {
-    max: 0.05,        // Warning threshold (5%)
-    critical: 0.10    // Critical threshold (10%)
-  },
-  memory: {
-    max: 0.80,        // Warning threshold (80%)
-    critical: 0.90    // Critical threshold (90%)
-  }
-};
+```bash
+curl -s https://realtime.mechamap.com/api/health
 ```
-
-## 🔧 API Endpoints
-
-### Public Endpoints
-
-#### GET /api/monitoring/health
-Comprehensive health check với detailed status.
 
 **Response:**
 ```json
 {
-  "success": true,
-  "data": {
-    "status": "healthy",
-    "checks": {
-      "connections": {
-        "status": true,
-        "message": "21 active connections"
-      },
-      "responseTime": {
-        "status": true,
-        "message": "125ms avg response time"
-      },
-      "errorRate": {
-        "status": true,
-        "message": "0.00% error rate"
-      },
-      "uptime": {
-        "status": true,
-        "message": "2h 15m uptime"
-      },
-      "memory": {
-        "status": true,
-        "message": "19MB heap used"
-      }
-    },
-    "metrics": { /* detailed metrics */ },
-    "alerts": []
+  "status": "healthy",
+  "timestamp": "2025-07-18T02:45:42.640Z",
+  "uptime": 2272,
+  "memory": {
+    "used": 79.2,
+    "total": 2048,
+    "percentage": 3.87
   },
-  "timestamp": "2025-07-17T07:02:37.761Z"
+  "connections": {
+    "active": 0,
+    "total": 0
+  }
 }
 ```
 
-#### GET /api/monitoring/metrics
-Detailed metrics data.
+### Detailed Health Check
 
-#### GET /api/monitoring/performance
-Performance summary với formatted data.
+**Endpoint:** `GET /api/monitoring/health`
 
-#### GET /api/monitoring/connections
-Connection statistics và user information.
-
-#### GET /api/monitoring/alerts
-Active alerts và alert history.
-
-#### GET /api/monitoring/prometheus
-Prometheus-compatible metrics format.
-
-#### GET /api/monitoring/info
-Server information và configuration.
-
-### Admin Endpoints (Require X-Admin-Key header)
-
-#### POST /api/monitoring/reset
-Reset tất cả metrics về 0.
-
-**Headers:**
-```
-X-Admin-Key: your-admin-key
+```bash
+curl -s https://realtime.mechamap.com/api/monitoring/health
 ```
 
-#### PUT /api/monitoring/thresholds
-Update alert thresholds.
+**Response bao gồm:**
+- System resources (CPU, Memory)
+- Database connection status
+- Redis connection status (nếu có)
+- WebSocket connection statistics
+- Error rates
 
-**Headers:**
-```
-X-Admin-Key: your-admin-key
-Content-Type: application/json
+### Automated Health Monitoring
+
+Server tự động kiểm tra health mỗi 30 giây và ghi log khi phát hiện vấn đề:
+
+```javascript
+// Cấu hình trong .env.production
+HEALTH_CHECK_INTERVAL=30000
+HEALTH_CHECK_TIMEOUT=5000
 ```
 
-**Body:**
+## 📈 Performance Metrics
+
+### Basic Metrics
+
+**Endpoint:** `GET /api/metrics`
+
+```bash
+curl -s https://realtime.mechamap.com/api/metrics
+```
+
+### Detailed Performance Metrics
+
+**Endpoint:** `GET /api/monitoring/metrics`
+
+```bash
+curl -s https://realtime.mechamap.com/api/monitoring/metrics
+```
+
+**Metrics bao gồm:**
+- **Connection Metrics**: Active, total, peak connections
+- **Request Metrics**: Total requests, success rate, error rate
+- **Performance Metrics**: Response times, throughput
+- **Resource Metrics**: Memory usage, CPU usage
+
+### Performance Summary
+
+**Endpoint:** `GET /api/monitoring/performance`
+
+```bash
+curl -s https://realtime.mechamap.com/api/monitoring/performance
+```
+
+**Response:**
 ```json
 {
-  "connections": {
-    "max": 1500,
-    "critical": 6000
+  "summary": {
+    "total_requests": 6,
+    "success_rate": 100,
+    "avg_response_time": 0.2,
+    "uptime": 2272
   },
-  "responseTime": {
-    "max": 600,
-    "critical": 1200
+  "requests": {
+    "total": 6,
+    "successful": 6,
+    "failed": 0,
+    "slow": 0
+  },
+  "response_times": {
+    "average": 0.2,
+    "min": 0.1,
+    "max": 0.5,
+    "p95": 0.4
   }
 }
 ```
 
-## 🔐 Security
+## 🔌 Connection Monitoring
 
-### Admin Authentication
-Admin endpoints require `X-Admin-Key` header:
+### WebSocket Connections
+
+**Endpoint:** `GET /api/monitoring/connections`
+
 ```bash
-curl -H "X-Admin-Key: your-secret-admin-key" \
-  http://localhost:3000/api/monitoring/reset
+curl -s https://realtime.mechamap.com/api/monitoring/connections
 ```
 
-### Rate Limiting
-Monitoring endpoints có rate limiting:
-- Public endpoints: 100 requests/minute
-- Admin endpoints: 20 requests/minute
+**Thông tin bao gồm:**
+- Số lượng connections active
+- Peak connections
+- Connections theo user
+- Channel subscriptions
+- Connection duration statistics
 
-### Data Privacy
-- Không log sensitive user data
-- Metrics chỉ chứa aggregated data
-- User IDs được anonymized trong logs
+### Connection Limits
 
-## 📈 Prometheus Integration
+Server có các giới hạn để bảo vệ hiệu suất:
 
-### Metrics Export
-Server export metrics ở Prometheus format tại `/api/monitoring/prometheus`:
-
-```
-# HELP websocket_connections_total Total number of WebSocket connections
-# TYPE websocket_connections_total counter
-websocket_connections_total 21
-
-# HELP websocket_connections_active Current active WebSocket connections
-# TYPE websocket_connections_active gauge
-websocket_connections_active 21
-
-# HELP http_request_duration_ms Average HTTP request duration in milliseconds
-# TYPE http_request_duration_ms gauge
-http_request_duration_ms 124.76
-
-# HELP auth_attempts_total Total authentication attempts
-# TYPE auth_attempts_total counter
-auth_attempts_total{result="success"} 21
-auth_attempts_total{result="failure"} 0
+```env
+# Trong .env.production
+MAX_CONNECTIONS=5000
+MAX_CONNECTIONS_PER_USER=5
+CONNECTION_TIMEOUT=30000
 ```
 
-### Grafana Dashboard
-Có thể tạo Grafana dashboard với các metrics này để visualize:
-- Connection trends
-- Performance graphs
-- Error rate charts
-- Alert notifications
+### Connection Health
 
-## 🛠️ Configuration
+Server tự động:
+- Ping/pong heartbeat mỗi 25 giây
+- Cleanup connections timeout
+- Track connection quality metrics
 
-### Environment Variables
+## 🖥️ System Information
+
+### System Info
+
+**Endpoint:** `GET /api/monitoring/info`
+
 ```bash
-# Admin key cho monitoring endpoints
-ADMIN_KEY=your-secret-admin-key
-
-# Monitoring configuration
-MONITORING_ENABLED=true
-METRICS_RETENTION_HOURS=24
-ALERT_WEBHOOK_URL=https://your-webhook-url.com
+curl -s https://realtime.mechamap.com/api/monitoring/info
 ```
 
-### Monitoring Configuration
+**Response bao gồm:**
+- Server information (version, environment)
+- System information (platform, architecture)
+- Configuration details
+- Runtime statistics
+
+## 📊 PM2 Monitoring
+
+### PM2 Status
+
+```bash
+# Xem trạng thái tất cả processes
+pm2 status
+
+# Xem chi tiết một process
+pm2 show mechamap-realtime
+
+# Monitor real-time
+pm2 monit
+```
+
+### PM2 Logs
+
+```bash
+# Xem logs real-time
+pm2 logs mechamap-realtime
+
+# Xem logs với số dòng cụ thể
+pm2 logs mechamap-realtime --lines 100
+
+# Xem chỉ error logs
+pm2 logs mechamap-realtime --err
+
+# Xem logs của tất cả instances
+pm2 logs
+```
+
+### PM2 Metrics
+
+```bash
+# Xem memory usage
+pm2 show mechamap-realtime | grep memory
+
+# Xem CPU usage
+pm2 show mechamap-realtime | grep cpu
+
+# Xem uptime
+pm2 show mechamap-realtime | grep uptime
+```
+
+## 📝 Log Management
+
+### Log Files
+
+Logs được lưu trong thư mục `logs/`:
+
+```
+logs/
+├── combined.log      # Tất cả logs
+├── out.log          # Standard output
+├── error.log        # Error logs
+├── exceptions.log   # Uncaught exceptions
+└── rejections.log   # Unhandled promise rejections
+```
+
+### Log Levels
+
 ```javascript
-// src/config/monitoring.js
-module.exports = {
-  enabled: process.env.MONITORING_ENABLED === 'true',
-  retentionHours: parseInt(process.env.METRICS_RETENTION_HOURS) || 24,
-  alertWebhook: process.env.ALERT_WEBHOOK_URL,
-  thresholds: {
-    connections: {
-      max: 1000,
-      critical: 5000
-    },
-    responseTime: {
-      max: 500,
-      critical: 1000
-    },
-    errorRate: {
-      max: 0.05,
-      critical: 0.10
-    },
-    memory: {
-      max: 0.80,
-      critical: 0.90
-    }
-  }
+// Log levels theo thứ tự ưu tiên
+{
+  error: 0,
+  warn: 1,
+  info: 2,
+  http: 3,
+  verbose: 4,
+  debug: 5,
+  silly: 6
+}
+```
+
+### Log Rotation
+
+Cấu hình logrotate trong `/etc/logrotate.d/mechamap-realtime`:
+
+```
+/var/www/realtime_mec_usr/data/www/realtime.mechamap.com/logs/*.log {
+    daily
+    missingok
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    create 644 root root
+    postrotate
+        pm2 reload mechamap-realtime
+    endscript
+}
+```
+
+### Log Analysis
+
+```bash
+# Xem error logs gần nhất
+tail -f logs/error.log
+
+# Tìm kiếm errors cụ thể
+grep -i "error" logs/combined.log
+
+# Đếm số lượng requests
+grep -c "GET\|POST" logs/combined.log
+
+# Xem top IP addresses
+awk '{print $1}' logs/combined.log | sort | uniq -c | sort -nr | head -10
+```
+
+## 🚨 Alerting & Notifications
+
+### Alert Thresholds
+
+Server có các ngưỡng cảnh báo mặc định:
+
+```javascript
+// Trong monitoring service
+const DEFAULT_THRESHOLDS = {
+  memory: { max: 85 },           // 85% memory usage
+  cpu: { max: 80 },              // 80% CPU usage
+  connections: { max: 4500 },    // 4500 active connections
+  responseTime: { max: 1000 },   // 1000ms response time
+  errorRate: { max: 5 }          // 5% error rate
 };
 ```
 
-## 🔄 Real-time Updates
+### Custom Alert Configuration
 
-### WebSocket Events
-Monitoring system có thể emit real-time events:
+Cập nhật thresholds qua API (yêu cầu admin key):
 
-```javascript
-// Server emit monitoring events
-io.emit('monitoring.alert', {
-  type: 'warning',
-  message: 'High response time detected',
-  threshold: 500,
-  current: 750,
-  timestamp: new Date()
-});
-
-io.emit('monitoring.metrics', {
-  connections: { active: 150, total: 1250 },
-  performance: { avgResponseTime: 245 },
-  timestamp: new Date()
-});
-```
-
-### Client Integration
-Frontend có thể subscribe để nhận real-time monitoring updates:
-
-```javascript
-socket.on('monitoring.alert', (alert) => {
-  console.warn('Monitoring Alert:', alert);
-  // Show notification to admin users
-});
-
-socket.on('monitoring.metrics', (metrics) => {
-  // Update dashboard in real-time
-  updateDashboard(metrics);
-});
-```
-
-## 📝 Logging
-
-### Monitoring Logs
-Tất cả monitoring activities được log với structured format:
-
-```json
-{
-  "timestamp": "2025-07-17T07:02:37.761Z",
-  "level": "info",
-  "message": "Connection tracked",
-  "service": "mechamap-realtime",
-  "category": "monitoring",
-  "data": {
-    "socketId": "abc123",
-    "userId": 22,
-    "userRole": "member",
-    "totalConnections": 21,
-    "activeConnections": 21,
-    "peakConnections": 21
-  }
-}
-```
-
-### Log Categories
-- `monitoring`: General monitoring events
-- `auth`: Authentication tracking
-- `performance`: Performance metrics
-- `alerts`: Alert generation
-- `health`: Health check results
-
-## 🚀 Best Practices
-
-### Production Deployment
-1. **Set proper admin key**: Use strong, random admin key
-2. **Configure thresholds**: Adjust thresholds theo production load
-3. **Setup external monitoring**: Integrate với Prometheus/Grafana
-4. **Monitor logs**: Setup log aggregation và alerting
-5. **Regular health checks**: Setup automated health monitoring
-
-### Performance Optimization
-1. **Metrics retention**: Limit retention time để avoid memory issues
-2. **Sampling**: Consider sampling cho high-traffic scenarios
-3. **Async processing**: Process metrics asynchronously
-4. **Caching**: Cache frequently accessed metrics
-
-### Security Considerations
-1. **Secure admin endpoints**: Use strong authentication
-2. **Rate limiting**: Prevent abuse of monitoring endpoints
-3. **Data privacy**: Avoid logging sensitive information
-4. **Access control**: Restrict monitoring access to authorized users
-
-## 🆘 Troubleshooting
-
-### Common Issues
-
-#### High Memory Usage
 ```bash
-# Check memory metrics
-curl http://localhost:3000/api/monitoring/metrics | jq '.server.memory'
-
-# Reset metrics if needed
-curl -X POST -H "X-Admin-Key: your-key" \
-  http://localhost:3000/api/monitoring/reset
-```
-
-#### Missing Metrics
-```bash
-# Verify monitoring is enabled
-curl http://localhost:3000/api/monitoring/info
-
-# Check server logs
-tail -f logs/app.log | grep monitoring
-```
-
-#### Alert Not Working
-```bash
-# Check alert configuration
-curl http://localhost:3000/api/monitoring/alerts
-
-# Update thresholds
-curl -X PUT -H "X-Admin-Key: your-key" \
+curl -X PUT https://realtime.mechamap.com/api/monitoring/thresholds \
+  -H "X-Admin-Key: your-admin-key" \
   -H "Content-Type: application/json" \
-  -d '{"connections":{"max":2000}}' \
-  http://localhost:3000/api/monitoring/thresholds
+  -d '{
+    "memory": {"max": 90},
+    "connections": {"max": 5000},
+    "responseTime": {"max": 500}
+  }'
 ```
 
-## 📚 Related Documentation
+### Alert Notifications
 
-- [API Documentation](./API.md)
-- [Deployment Guide](./DEPLOYMENT.md)
-- [Security Guide](./SECURITY.md)
-- [Performance Tuning](./PERFORMANCE.md)
+Khi vượt ngưỡng, server sẽ:
+1. Ghi log cảnh báo
+2. Cập nhật health status
+3. Gửi notification (nếu được cấu hình)
+
+## 🧪 Testing & Validation
+
+### System Test Script
+
+Chạy test tổng hợp:
+
+```bash
+./test-system.sh
+```
+
+Script này sẽ test:
+- DNS resolution
+- SSL certificate
+- All API endpoints
+- CORS configuration
+- Response times
+- Error handling
+
+### Manual Health Checks
+
+```bash
+# Quick health check
+curl -f https://realtime.mechamap.com/api/health || echo "Health check failed"
+
+# Detailed check với timeout
+timeout 10 curl -s https://realtime.mechamap.com/api/monitoring/health
+
+# WebSocket connection test
+wscat -c wss://realtime.mechamap.com/socket.io/?EIO=4&transport=websocket
+```
+
+### Load Testing
+
+Sử dụng tools như Artillery hoặc wrk:
+
+```bash
+# Cài đặt Artillery
+npm install -g artillery
+
+# Tạo load test config
+cat > load-test.yml << EOF
+config:
+  target: 'https://realtime.mechamap.com'
+  phases:
+    - duration: 60
+      arrivalRate: 10
+scenarios:
+  - name: "Health check load test"
+    requests:
+      - get:
+          url: "/api/health"
+EOF
+
+# Chạy load test
+artillery run load-test.yml
+```
+
+## 📊 Performance Optimization
+
+### Memory Optimization
+
+```bash
+# Kiểm tra memory usage
+pm2 show mechamap-realtime | grep memory
+
+# Restart nếu memory cao
+pm2 restart mechamap-realtime
+
+# Cấu hình memory limit
+pm2 start ecosystem.config.js --env production --max-memory-restart 2G
+```
+
+### Connection Optimization
+
+```javascript
+// Trong .env.production
+WS_PING_TIMEOUT=60000
+WS_PING_INTERVAL=25000
+CONNECTION_TIMEOUT=30000
+HEARTBEAT_INTERVAL=25000
+```
+
+### Database Optimization
+
+```javascript
+// Connection pool settings
+DB_CONNECTION_LIMIT=20
+DB_TIMEOUT=60000
+```
+
+## 🔧 Maintenance Tasks
+
+### Daily Tasks
+
+```bash
+#!/bin/bash
+# daily-maintenance.sh
+
+# Check disk space
+df -h
+
+# Check memory usage
+free -h
+
+# Check PM2 status
+pm2 status
+
+# Rotate logs if needed
+sudo logrotate -f /etc/logrotate.d/mechamap-realtime
+
+# Health check
+curl -f https://realtime.mechamap.com/api/health
+```
+
+### Weekly Tasks
+
+```bash
+#!/bin/bash
+# weekly-maintenance.sh
+
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Check for Node.js updates
+npm outdated
+
+# Analyze logs for patterns
+grep -i "error" logs/combined.log | tail -100
+
+# Check SSL certificate expiry
+echo | openssl s_client -servername realtime.mechamap.com -connect realtime.mechamap.com:443 2>/dev/null | openssl x509 -noout -dates
+```
+
+### Monthly Tasks
+
+```bash
+#!/bin/bash
+# monthly-maintenance.sh
+
+# Archive old logs
+tar -czf logs/archive/logs-$(date +%Y-%m).tar.gz logs/*.log
+rm logs/*.log.1 logs/*.log.2
+
+# Database maintenance
+mysql -e "OPTIMIZE TABLE notifications, users;"
+
+# Performance review
+curl -s https://realtime.mechamap.com/api/monitoring/performance | jq .
+```
+
+## 📈 Metrics Dashboard
+
+### Key Metrics to Monitor
+
+1. **Availability Metrics**
+   - Uptime percentage
+   - Health check success rate
+   - Response time
+
+2. **Performance Metrics**
+   - Average response time
+   - Requests per second
+   - Error rate
+
+3. **Resource Metrics**
+   - CPU usage
+   - Memory usage
+   - Disk usage
+
+4. **Business Metrics**
+   - Active WebSocket connections
+   - Messages delivered
+   - User engagement
+
+### Creating Custom Dashboard
+
+Sử dụng tools như Grafana với Prometheus:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'mechamap-realtime'
+    static_configs:
+      - targets: ['realtime.mechamap.com:3000']
+    metrics_path: '/api/monitoring/prometheus'
+```
+
+## 🚨 Incident Response
+
+### Common Issues & Solutions
+
+1. **High Memory Usage**
+   ```bash
+   # Restart PM2 process
+   pm2 restart mechamap-realtime
+   
+   # Check for memory leaks
+   pm2 show mechamap-realtime
+   ```
+
+2. **High CPU Usage**
+   ```bash
+   # Check process details
+   top -p $(pgrep -f mechamap-realtime)
+   
+   # Scale up instances if needed
+   pm2 scale mechamap-realtime +1
+   ```
+
+3. **Database Connection Issues**
+   ```bash
+   # Test database connection
+   mysql -h $DB_HOST -u $DB_USER -p$DB_PASSWORD $DB_NAME
+   
+   # Restart if needed
+   pm2 restart mechamap-realtime
+   ```
+
+4. **SSL Certificate Expiry**
+   ```bash
+   # Renew Let's Encrypt certificate
+   sudo certbot renew
+   
+   # Reload Nginx
+   sudo systemctl reload nginx
+   ```
+
+### Escalation Process
+
+1. **Level 1**: Automated restart via PM2
+2. **Level 2**: Manual intervention required
+3. **Level 3**: Contact development team
+4. **Level 4**: Emergency response
+
+## 📞 Support Contacts
+
+- **Development Team**: [team-email]
+- **Infrastructure**: [infra-email]
+- **Emergency**: [emergency-contact]
+
+## 📋 Monitoring Checklist
+
+### Daily Checks
+- [ ] Server uptime > 99%
+- [ ] Memory usage < 85%
+- [ ] Error rate < 1%
+- [ ] Response time < 500ms
+- [ ] Active connections normal
+
+### Weekly Checks
+- [ ] Log analysis completed
+- [ ] Performance trends reviewed
+- [ ] Security updates applied
+- [ ] Backup verification
+- [ ] SSL certificate validity
+
+### Monthly Checks
+- [ ] Capacity planning review
+- [ ] Performance optimization
+- [ ] Security audit
+- [ ] Documentation updates
+- [ ] Disaster recovery test
+
+Monitoring là một phần quan trọng để đảm bảo MechaMap Realtime Server hoạt động ổn định và hiệu quả trong môi trường production.
