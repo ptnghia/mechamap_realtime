@@ -2,8 +2,8 @@ module.exports = {
   apps: [{
     name: 'mechamap-realtime',
     script: './src/app.js',
-    instances: 1,
-    exec_mode: 'fork',
+    instances: 2,
+    exec_mode: 'cluster',
 
     // Environment files
     env: {
