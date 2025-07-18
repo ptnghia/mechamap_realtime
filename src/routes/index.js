@@ -273,6 +273,26 @@ function setupRoutes(app, monitoring = null) {
     });
   });
 
+  // Main endpoint - Server information
+  app.get('/', (req, res) => {
+    res.json({
+      service: 'MechaMap Realtime Server',
+      message: 'WebSocket server is running',
+      version: require('../../package.json').version,
+      timestamp: new Date().toISOString(),
+      endpoints: {
+        health: '/api/health',
+        status: '/api/status',
+        metrics: '/api/metrics',
+        broadcast: 'POST /api/broadcast'
+      },
+      websocket: {
+        url: `wss://realtime.mechamap.com`,
+        transports: ['websocket', 'polling']
+      }
+    });
+  });
+
   // Mount API routes
   app.use('/api', apiRouter);
 

@@ -17,6 +17,8 @@ function loadEnvironment() {
   let envFile = '.env';
   if (nodeEnv === 'production') {
     envFile = '.env.production';
+  } else if (nodeEnv === 'development') {
+    envFile = '.env.development';
   }
 
   const envPath = path.join(rootDir, envFile);
