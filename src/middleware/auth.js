@@ -265,6 +265,12 @@ function mockUserValidation (userId) {
  * Socket.IO Authentication Middleware
  */
 async function authMiddleware (socket, next) {
+  logger.auth("🔍 AuthMiddleware called", {
+    socketId: socket.id,
+    hasToken: !!(socket.handshake.auth.token || socket.handshake.headers.authorization),
+    mockLaravelApi: config.development.mockLaravelApi,
+    nodeEnv: config.nodeEnv
+  });
   try {
     // Development mode: Skip authentication if DISABLE_AUTH is true
     if (process.env.DISABLE_AUTH === 'true') {
@@ -300,7 +306,7 @@ async function authMiddleware (socket, next) {
       return next()
     }
 
-    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '')
+    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace("Bearer ", "") || socket.handshake.query.token
 
     if (!token) {
       logger.auth('Authentication failed: No token provided', {
@@ -320,8 +326,20 @@ async function authMiddleware (socket, next) {
         tokenId: tokenData.tokenId
       })
 
-      // Call Laravel API to get user info
-      const user = await validateUserWithLaravel(null, token)
+      // Call Laravel API to get user info or use mock
+      let user
+      if (config.development.mockLaravelApi) {
+        // Use mock user for Sanctum tokens
+        user = {
+          id: 22,
+          email: "user22@mechamap.test",
+          role: "member",
+          name: "Test User 22",
+          permissions: ["read_notifications", "receive_notifications"]
+        }
+      } else {
+        user = await validateUserWithLaravel(null, token)
+      }
       userId = user.id
 
       // Attach user information to socket
@@ -348,7 +366,7 @@ async function authMiddleware (socket, next) {
       // Validate user with Laravel backend or use mock in development
       let user
 
-      if (config.development.mockLaravelApi && config.nodeEnv === 'development') {
+      if (config.development.mockLaravelApi) {
         user = mockUserValidation(userId)
       } else {
         user = await validateUserWithLaravel(userId, token)
