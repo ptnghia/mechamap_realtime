@@ -1,276 +1,183 @@
-# Hướng dẫn Deployment - MechaMap Realtime Server
+# Production Deployment Guide - MechaMap Realtime Server
 
-Tài liệu này cung cấp hướng dẫn chi tiết về cách deploy MechaMap Realtime Server từ development đến production.
+🚀 **Complete guide for deploying MechaMap Realtime Server to production**
 
-## 🚀 Tổng quan Deployment
+## 🎯 **Production Architecture**
 
-MechaMap Realtime Server hỗ trợ nhiều môi trường deployment:
-- **Development**: Local development với hot-reload
-- **Production**: Production server với PM2 clustering
-- **Docker**: Container deployment (tùy chọn)
-
-## 🛠️ Development Setup
-
-### Yêu cầu hệ thống
-- Node.js >= 18.0.0
-- npm >= 8.0.0
-- MySQL database
-- Redis (tùy chọn)
-
-### Cài đặt Development
-
-1. **Clone repository:**
-```bash
-git clone https://github.com/ptnghia/mechamap_realtime.git
-cd mechamap_realtime
+```
+Frontend: https://mechamap.com (Shared Hosting)
+    ↓ WebSocket HTTPS:443
+Realtime: https://realtime.mechamap.com (VPS)
+    ↓ API Calls HTTPS
+Backend: https://mechamap.com/api (Laravel)
 ```
 
-2. **Cài đặt dependencies:**
-```bash
-npm install
-```
+## 📋 **Pre-deployment Checklist**
 
-3. **Cấu hình environment:**
-```bash
-cp .env.example .env
-```
+### **VPS Requirements**
+- **OS**: Ubuntu 20.04+ / CentOS 8+
+- **RAM**: 2GB minimum, 4GB recommended
+- **CPU**: 2 cores minimum
+- **Storage**: 20GB minimum
+- **Network**: Public IP with domain pointing
 
-Chỉnh sửa file `.env`:
-```env
-# Server Configuration
-NODE_ENV=development
-PORT=3000
-HOST=0.0.0.0
+### **Domain Setup**
+- **Main Domain**: `mechamap.com` → Hosting IP
+- **Realtime Domain**: `realtime.mechamap.com` → VPS IP
+- **SSL Certificates**: Let's Encrypt for both domains
 
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=mechamap_dev
-DB_USER=root
-DB_PASSWORD=your_password
+## 🔧 **VPS Setup**
 
-# Laravel Integration
-LARAVEL_API_URL=http://localhost:8000
-LARAVEL_API_KEY=your-dev-api-key
-
-# JWT Configuration
-JWT_SECRET=your-development-jwt-secret
-JWT_EXPIRES_IN=1h
-
-# CORS Configuration
-CORS_ORIGIN=http://localhost:3000
-CORS_CREDENTIALS=true
-
-# SSL Configuration (Development)
-SSL_ENABLED=false
-
-# Debug Mode
-DEBUG_MODE=true
-VERBOSE_LOGGING=true
-```
-
-4. **Khởi động development server:**
-```bash
-# Với nodemon (auto-reload)
-npm run dev
-
-# Hoặc chạy trực tiếp
-node src/app.js
-```
-
-5. **Kiểm tra server:**
-```bash
-curl http://localhost:3000/api/health
-```
-
-### Development Scripts
+### **Step 1: Server Preparation**
 
 ```bash
-# Khởi động với auto-reload
-npm run dev
-
-# Chạy tests
-npm test
-
-# Kiểm tra code style
-npm run lint
-
-# Format code
-npm run format
-```
-
-## 🚀 Production Deployment
-
-### Yêu cầu Production
-- VPS/Server với Node.js >= 18.0.0
-- PM2 process manager
-- Nginx reverse proxy (khuyến nghị)
-- SSL certificate (Let's Encrypt)
-- MySQL database
-- Redis (khuyến nghị)
-
-### Bước 1: Chuẩn bị Server
-
-1. **Cập nhật hệ thống:**
-```bash
+# Update system
 sudo apt update && sudo apt upgrade -y
+
+# Install essential packages
+sudo apt install -y curl wget git nginx ufw
+
+# Configure firewall
+sudo ufw allow ssh
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
 ```
 
-2. **Cài đặt Node.js:**
+### **Step 2: Install Node.js**
+
 ```bash
+# Install Node.js 18.x
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-sudo apt-get install -y nodejs
-```
+sudo apt install -y nodejs
 
-3. **Cài đặt PM2:**
-```bash
+# Verify installation
+node --version  # Should be v18.x.x
+npm --version   # Should be 9.x.x
+
+# Install PM2 globally
 sudo npm install -g pm2
 ```
 
-4. **Cài đặt Nginx (tùy chọn):**
+### **Step 3: Install MySQL**
+
 ```bash
-sudo apt install nginx -y
+# Install MySQL
+sudo apt install -y mysql-server
+
+# Secure installation
+sudo mysql_secure_installation
+
+# Create production database
+sudo mysql -u root -p
 ```
 
-### Bước 2: Deploy Code
-
-1. **Clone repository trên server:**
-```bash
-cd /var/www/
-git clone https://github.com/ptnghia/mechamap_realtime.git
-cd mechamap_realtime
+```sql
+-- Create database and user
+CREATE DATABASE mechamap_production CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'mechamap_user'@'localhost' IDENTIFIED BY 'YOUR_SECURE_PASSWORD';
+GRANT ALL PRIVILEGES ON mechamap_production.* TO 'mechamap_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
 ```
 
-2. **Cài đặt dependencies:**
+### **Step 4: SSL Certificate Setup**
+
 ```bash
-npm ci --production
+# Install Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Get SSL certificate
+sudo certbot certonly --nginx -d realtime.mechamap.com
+
+# Verify certificate
+sudo certbot certificates
 ```
 
-3. **Cấu hình production environment:**
+## 🚀 **Application Deployment**
+
+### **Step 1: Deploy Application**
+
 ```bash
-cp .env.example .env.production
+# Create application directory
+sudo mkdir -p /var/www/mechamap-realtime
+sudo chown $USER:$USER /var/www/mechamap-realtime
+
+# Clone repository
+cd /var/www/mechamap-realtime
+git clone https://github.com/your-repo/mechamap-realtime.git .
+
+# Install dependencies
+npm install --omit=dev
 ```
 
-Chỉnh sửa `.env.production`:
-```env
+### **Step 2: Configure Environment**
+
+```bash
+# Copy production config
+cp .env.production .env
+
+# Update configuration
+nano .env
+```
+
+**Update these values in .env:**
+```bash
 # Server Configuration
 NODE_ENV=production
-PORT=3000
+PORT=443
 HOST=0.0.0.0
 
-# SSL Configuration (handled by reverse proxy)
-SSL_ENABLED=false
+# SSL Configuration
+SSL_ENABLED=true
+SSL_CERT_PATH=/etc/letsencrypt/live/realtime.mechamap.com/fullchain.pem
+SSL_KEY_PATH=/etc/letsencrypt/live/realtime.mechamap.com/privkey.pem
 
-# Database Configuration (Production)
-DB_HOST=your-db-host
-DB_PORT=3306
-DB_NAME=your-production-db
-DB_USER=your-db-user
-DB_PASSWORD=your-secure-password
-
-# Laravel Integration (Production)
+# Laravel Integration
 LARAVEL_API_URL=https://mechamap.com
-LARAVEL_API_KEY=your-production-api-key
+LARAVEL_API_KEY=YOUR_PRODUCTION_API_KEY
 
-# JWT Configuration (Secure)
-JWT_SECRET=your-very-secure-jwt-secret-256-bits
-JWT_EXPIRES_IN=1h
+# Database
+DB_HOST=localhost
+DB_NAME=mechamap_production
+DB_USER=mechamap_user
+DB_PASSWORD=YOUR_SECURE_PASSWORD
 
-# CORS Configuration (Production)
+# Security
 CORS_ORIGIN=https://mechamap.com,https://www.mechamap.com
-CORS_CREDENTIALS=true
-
-# Security Settings
-ADMIN_KEY=your-secure-admin-key
-RATE_LIMIT_MAX_REQUESTS=100
-MAX_CONNECTIONS=5000
-
-# Performance Settings
-CLUSTER_ENABLED=true
-CLUSTER_WORKERS=2
-
-# Monitoring
-METRICS_ENABLED=true
-HEALTH_CHECK_INTERVAL=30000
-
-# Production Settings
-DEBUG_MODE=false
-VERBOSE_LOGGING=false
+JWT_SECRET=YOUR_JWT_SECRET_SYNCHRONIZED_WITH_LARAVEL
 ```
 
-### Bước 3: Cấu hình PM2
+### **Step 3: Configure PM2**
 
-File `ecosystem.config.js` đã được cấu hình sẵn:
-
-```javascript
-module.exports = {
-  apps: [{
-    name: 'mechamap-realtime',
-    script: './src/app.js',
-    instances: 2,
-    exec_mode: 'cluster',
-    
-    env: {
-      NODE_ENV: 'development',
-      PORT: 3000
-    },
-    env_production: {
-      NODE_ENV: 'production',
-      PORT: 3000
-    },
-    
-    env_file: '.env.production',
-    
-    max_memory_restart: '2G',
-    min_uptime: '10s',
-    max_restarts: 15,
-    autorestart: true,
-    
-    log_file: './logs/combined.log',
-    out_file: './logs/out.log',
-    error_file: './logs/error.log',
-    
-    node_args: '--max-old-space-size=4096'
-  }]
-};
-```
-
-### Bước 4: Khởi động Production
-
-1. **Tạo thư mục logs:**
 ```bash
-mkdir -p logs
-chmod 755 logs
-```
-
-2. **Khởi động với PM2:**
-```bash
+# Start application with PM2
 pm2 start ecosystem.config.js --env production
-```
 
-3. **Lưu cấu hình PM2:**
-```bash
-pm2 save
+# Setup auto-start on boot
 pm2 startup
-```
+pm2 save
 
-4. **Kiểm tra trạng thái:**
-```bash
+# Verify status
 pm2 status
 pm2 logs mechamap-realtime
 ```
 
-### Bước 5: Cấu hình Reverse Proxy (Nginx)
+### **Step 4: Configure Nginx**
 
-Tạo file `/etc/nginx/sites-available/realtime.mechamap.com`:
+```bash
+# Create Nginx configuration
+sudo nano /etc/nginx/sites-available/realtime.mechamap.com
+```
 
 ```nginx
+# HTTP to HTTPS redirect
 server {
     listen 80;
     server_name realtime.mechamap.com;
     return 301 https://$server_name$request_uri;
 }
 
+# HTTPS server
 server {
     listen 443 ssl http2;
     server_name realtime.mechamap.com;
@@ -278,22 +185,19 @@ server {
     # SSL Configuration
     ssl_certificate /etc/letsencrypt/live/realtime.mechamap.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/realtime.mechamap.com/privkey.pem;
-    
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512;
     ssl_prefer_server_ciphers off;
-    ssl_session_cache shared:SSL:10m;
 
     # Security Headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "no-referrer-when-downgrade" always;
-    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-    # Proxy to Node.js server
+    # WebSocket Proxy
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass https://localhost:443;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -302,319 +206,201 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
-        
-        # WebSocket support
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
         proxy_read_timeout 86400;
     }
 }
 ```
 
-Kích hoạt site:
 ```bash
+# Enable site
 sudo ln -s /etc/nginx/sites-available/realtime.mechamap.com /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Bước 6: SSL Certificate
+## 🏠 **Hosting Configuration**
 
-Sử dụng Let's Encrypt:
+### **Laravel Backend Setup**
+
+Update Laravel `.env` on hosting:
+
 ```bash
-sudo apt install certbot python3-certbot-nginx -y
-sudo certbot --nginx -d realtime.mechamap.com
+# WebSocket Configuration
+WEBSOCKET_SERVER_URL=https://realtime.mechamap.com
+WEBSOCKET_SERVER_HOST=realtime.mechamap.com
+WEBSOCKET_SERVER_PORT=443
+WEBSOCKET_SERVER_SECURE=true
+
+# Broadcasting
+BROADCAST_CONNECTION=nodejs
+NODEJS_BROADCAST_URL=https://realtime.mechamap.com
+
+# API Key (synchronized with realtime server)
+WEBSOCKET_API_KEY_HASH=YOUR_API_KEY_HASH
 ```
 
-## 🔧 Production Scripts
+## 🧪 **Testing Deployment**
 
-### Script khởi động production
+### **Health Checks**
 
-File `scripts/start-production.sh`:
 ```bash
-#!/bin/bash
-set -e
+# Test realtime server health
+curl -I https://realtime.mechamap.com/health
 
-echo "🚀 Starting MechaMap Realtime Server in Production Mode"
+# Test WebSocket endpoint
+curl -I https://realtime.mechamap.com/socket.io/
 
-# Change to app directory
-cd /var/www/mechamap_realtime
+# Test CORS headers
+curl -H "Origin: https://mechamap.com" -I https://realtime.mechamap.com
+```
 
-# Create logs directory
-mkdir -p logs
+### **Frontend Testing**
 
-# Stop existing processes
-pm2 stop mechamap-realtime 2>/dev/null || true
-pm2 delete mechamap-realtime 2>/dev/null || true
+1. **Open**: `https://mechamap.com`
+2. **Login**: Any user account
+3. **Open DevTools**: F12 → Console
+4. **Check logs**: Look for WebSocket connection messages
 
-# Start with PM2
-NODE_ENV=production pm2 start ecosystem.config.js --env production
+**Expected logs:**
+```javascript
+MechaMap WebSocket: Connecting to https://realtime.mechamap.com
+WebSocket connected successfully
+User authenticated: {userId: 1, socketId: "abc123"}
+```
 
-# Show status
+## 📊 **Monitoring & Maintenance**
+
+### **PM2 Monitoring**
+
+```bash
+# Check status
 pm2 status
-pm2 logs mechamap-realtime --lines 10
 
-echo "✅ MechaMap Realtime Server started successfully!"
-```
-
-Chạy script:
-```bash
-chmod +x scripts/start-production.sh
-./scripts/start-production.sh
-```
-
-## 📊 Monitoring & Maintenance
-
-### PM2 Commands
-
-```bash
-# Xem trạng thái
-pm2 status
-
-# Xem logs
+# View logs
 pm2 logs mechamap-realtime
 
-# Monitor real-time
+# Monitor resources
 pm2 monit
 
-# Restart
+# Restart application
 pm2 restart mechamap-realtime
-
-# Reload (zero-downtime)
-pm2 reload mechamap-realtime
-
-# Stop
-pm2 stop mechamap-realtime
-
-# Delete
-pm2 delete mechamap-realtime
 ```
 
-### Health Checks
+### **SSL Certificate Renewal**
 
 ```bash
-# Basic health check
-curl -s https://realtime.mechamap.com/api/health
+# Auto-renewal (setup cron job)
+sudo crontab -e
 
-# Detailed monitoring
-curl -s https://realtime.mechamap.com/api/monitoring/health
-
-# Performance metrics
-curl -s https://realtime.mechamap.com/api/monitoring/performance
+# Add this line for automatic renewal
+0 12 * * * /usr/bin/certbot renew --quiet
 ```
 
-### Log Management
-
-Logs được lưu trong thư mục `logs/`:
-- `combined.log` - Tất cả logs
-- `out.log` - Standard output
-- `error.log` - Error logs
-
-Rotate logs:
-```bash
-# Cấu hình logrotate
-sudo nano /etc/logrotate.d/mechamap-realtime
-```
-
-```
-/var/www/mechamap_realtime/logs/*.log {
-    daily
-    missingok
-    rotate 30
-    compress
-    delaycompress
-    notifempty
-    create 644 www-data www-data
-    postrotate
-        pm2 reload mechamap-realtime
-    endscript
-}
-```
-
-## 🧪 Testing Production
-
-### System Test Script
-
-Chạy test tổng hợp:
-```bash
-./test-system.sh
-```
-
-### Manual Testing
+### **Log Management**
 
 ```bash
-# Test main endpoint
-curl -s https://realtime.mechamap.com/
+# Application logs
+tail -f /var/www/mechamap-realtime/logs/app.log
 
-# Test health
-curl -s https://realtime.mechamap.com/api/health
+# Nginx logs
+tail -f /var/log/nginx/access.log
+tail -f /var/log/nginx/error.log
 
-# Test WebSocket (với wscat)
-npm install -g wscat
-wscat -c wss://realtime.mechamap.com/socket.io/?EIO=4&transport=websocket
-```
-
-## 🔄 Updates & Rollbacks
-
-### Update Process
-
-1. **Backup hiện tại:**
-```bash
-cp -r /var/www/mechamap_realtime /var/www/mechamap_realtime_backup
-```
-
-2. **Pull changes:**
-```bash
-cd /var/www/mechamap_realtime
-git pull origin main
-```
-
-3. **Update dependencies:**
-```bash
-npm ci --production
-```
-
-4. **Reload PM2:**
-```bash
-pm2 reload mechamap-realtime
-```
-
-### Rollback Process
-
-```bash
-# Stop current version
-pm2 stop mechamap-realtime
-
-# Restore backup
-rm -rf /var/www/mechamap_realtime
-mv /var/www/mechamap_realtime_backup /var/www/mechamap_realtime
-
-# Restart
-cd /var/www/mechamap_realtime
-pm2 start ecosystem.config.js --env production
-```
-
-## 🐳 Docker Deployment (Tùy chọn)
-
-### Dockerfile
-
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci --production
-
-COPY . .
-
-EXPOSE 3000
-
-CMD ["node", "src/app.js"]
-```
-
-### Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  mechamap-realtime:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-    volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
-```
-
-### Deploy với Docker
-
-```bash
-# Build image
-docker build -t mechamap-realtime .
-
-# Run container
-docker run -d \
-  --name mechamap-realtime \
-  -p 3000:3000 \
-  -v $(pwd)/logs:/app/logs \
-  --env-file .env.production \
-  mechamap-realtime
-
-# Hoặc với docker-compose
-docker-compose up -d
-```
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **Port đã được sử dụng:**
-```bash
-sudo lsof -i :3000
-sudo kill -9 <PID>
-```
-
-2. **Permission issues:**
-```bash
-sudo chown -R $USER:$USER /var/www/mechamap_realtime
-chmod +x scripts/*.sh
-```
-
-3. **Database connection:**
-```bash
-# Test database connection
-mysql -h <host> -u <user> -p <database>
-```
-
-4. **Memory issues:**
-```bash
-# Increase PM2 memory limit
-pm2 start ecosystem.config.js --env production --max-memory-restart 4G
-```
-
-### Logs Analysis
-
-```bash
-# Xem error logs
-tail -f logs/error.log
-
-# Xem PM2 logs
+# PM2 logs
 pm2 logs mechamap-realtime --lines 100
-
-# Xem system logs
-sudo journalctl -u nginx -f
 ```
 
-## 📋 Checklist Deployment
+## 🔄 **Updates & Rollbacks**
 
-### Pre-deployment
-- [ ] Code đã được test đầy đủ
-- [ ] Environment variables đã được cấu hình
-- [ ] Database connection đã được test
-- [ ] SSL certificates đã sẵn sàng
-- [ ] Backup dữ liệu hiện tại
+### **Application Updates**
 
-### Deployment
-- [ ] Code đã được deploy
-- [ ] Dependencies đã được cài đặt
-- [ ] PM2 đã được cấu hình và khởi động
-- [ ] Nginx reverse proxy đã được cấu hình
-- [ ] SSL đã được cấu hình
+```bash
+# Pull latest changes
+cd /var/www/mechamap-realtime
+git pull origin main
 
-### Post-deployment
-- [ ] Health checks pass
-- [ ] WebSocket connections hoạt động
-- [ ] Monitoring endpoints accessible
-- [ ] Logs được ghi đúng cách
-- [ ] Performance metrics bình thường
+# Install new dependencies
+npm install --omit=dev
 
-## 🆘 Support
+# Restart application
+pm2 restart mechamap-realtime
+```
 
-Nếu gặp vấn đề trong quá trình deployment:
-1. Kiểm tra logs: `pm2 logs mechamap-realtime`
-2. Chạy health check: `curl https://realtime.mechamap.com/api/health`
-3. Kiểm tra system test: `./test-system.sh`
-4. Liên hệ team development để được hỗ trợ
+### **Rollback Procedure**
+
+```bash
+# Rollback to previous version
+git log --oneline -10  # Find commit hash
+git checkout COMMIT_HASH
+
+# Restart application
+pm2 restart mechamap-realtime
+```
+
+## 🚨 **Troubleshooting**
+
+### **Common Issues**
+
+1. **SSL Certificate Errors**
+   ```bash
+   sudo certbot renew --dry-run
+   sudo systemctl reload nginx
+   ```
+
+2. **Port 443 Already in Use**
+   ```bash
+   sudo lsof -i :443
+   sudo kill -9 PID
+   ```
+
+3. **Database Connection Failed**
+   ```bash
+   mysql -h localhost -u mechamap_user -p mechamap_production
+   ```
+
+4. **CORS Errors**
+   - Check `CORS_ORIGIN` in `.env`
+   - Verify domain spelling
+   - Check Nginx proxy headers
+
+### **Emergency Procedures**
+
+```bash
+# Stop all services
+pm2 stop all
+sudo systemctl stop nginx
+
+# Start services
+sudo systemctl start nginx
+pm2 start all
+
+# Check system resources
+free -h
+df -h
+top
+```
+
+## ✅ **Deployment Checklist**
+
+- [ ] VPS setup completed
+- [ ] Node.js and PM2 installed
+- [ ] MySQL database created
+- [ ] SSL certificates configured
+- [ ] Application deployed and configured
+- [ ] PM2 auto-start enabled
+- [ ] Nginx configured and running
+- [ ] Health checks passing
+- [ ] WebSocket connection tested
+- [ ] Laravel backend configured
+- [ ] Monitoring setup completed
+
+## 📞 **Support**
+
+If deployment fails:
+1. Check application logs: `pm2 logs mechamap-realtime`
+2. Check Nginx logs: `sudo tail -f /var/log/nginx/error.log`
+3. Verify SSL certificates: `sudo certbot certificates`
+4. Test database connection: `mysql -h localhost -u mechamap_user -p`
+5. Check firewall: `sudo ufw status`
+
+**Production deployment completed successfully!** 🎉

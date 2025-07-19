@@ -1,21 +1,52 @@
-# Tích hợp Laravel với MechaMap Realtime Server
+# Laravel Integration Guide - MechaMap Realtime Server
 
-Tài liệu này hướng dẫn team Laravel cách tích hợp với MechaMap Realtime Server để gửi thông báo real-time.
+🔗 **Complete guide for integrating Laravel backend with MechaMap Realtime Server**
 
-## 🔗 Thông tin kết nối
+## 🎯 **Integration Overview**
 
-### Production URLs
-- **Realtime Server**: `https://realtime.mechamap.com`
-- **Broadcasting Endpoint**: `https://realtime.mechamap.com/api/broadcast`
-- **Health Check**: `https://realtime.mechamap.com/api/health`
+```
+Laravel Backend (https://mechamap.com)
+    ↓ HTTP API Calls
+Realtime Server (https://realtime.mechamap.com)
+    ↓ WebSocket Events
+Frontend Users (https://mechamap.com)
+```
 
-### Authentication
-- **API Key**: `mechamap_ws_kCTy45s4obktB6IJJH6DpKHzoveEJLgrnmbST8fxwufexn0u80RnqMSO51ubWVQ3`
-- **Method**: Laravel Sanctum tokens hoặc API Key
+## 🔐 **Authentication Setup**
 
-## 🚀 Cách gửi thông báo từ Laravel
+### **API Key Configuration**
 
-### 1. Sử dụng HTTP Client (Khuyến nghị)
+**Laravel .env:**
+```bash
+# WebSocket API Key Hash (for verification)
+WEBSOCKET_API_KEY_HASH=b868ccd849f0e13b6d32fa95a250809daed5ac04c48d64fbf6bab0f035249808
+
+# Realtime Server URLs
+WEBSOCKET_SERVER_URL=https://realtime.mechamap.com
+NODEJS_BROADCAST_URL=https://realtime.mechamap.com
+```
+
+**Realtime Server .env:**
+```bash
+# API Key (raw key for sending requests)
+LARAVEL_API_KEY=mechamap_ws_kCTy45s4obktB6IJJH6DpKHzoveEJLgrnmbST8fxwufexn0u80RnqMSO51ubWVQ3
+
+# Laravel Backend URL
+LARAVEL_API_URL=https://mechamap.com
+```
+
+### **JWT Synchronization**
+
+Both Laravel and Realtime Server must use the same JWT secret:
+
+```bash
+# Same value in both .env files
+JWT_SECRET=cc779c53b425a9c6efab2e9def898a025bc077dec144726be95bd50916345e02d2535935490f7c047506c7ae494d5d4372d38189a5c4d8922a326d79090ae744
+```
+
+## 🚀 **Laravel Service Implementation**
+
+### **RealtimeNotificationService**
 
 ```php
 <?php
@@ -24,56 +55,49 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Config;
 
 class RealtimeNotificationService
 {
-    private $baseUrl;
-    private $apiKey;
+    private string $baseUrl;
+    private string $apiKey;
+    private int $timeout;
 
     public function __construct()
     {
-        $this->baseUrl = config('services.realtime.url', 'https://realtime.mechamap.com');
-        $this->apiKey = config('services.realtime.api_key');
+        $this->baseUrl = Config::get('websocket.server.url', 'https://realtime.mechamap.com');
+        $this->apiKey = Config::get('websocket.api_key');
+        $this->timeout = 10; // seconds
     }
 
     /**
-     * Gửi thông báo đến user cụ thể
+     * Send notification to specific user
      */
-    public function sendToUser($userId, $event, $data)
-    {
-        return $this->broadcast("private-user.{$userId}", $event, $data);
-    }
-
-    /**
-     * Gửi thông báo đến channel cụ thể
-     */
-    public function broadcast($channel, $event, $data)
+    public function sendNotificationToUser(int $userId, array $notification): bool
     {
         try {
-            $response = Http::timeout(10)
+            $response = Http::timeout($this->timeout)
                 ->withHeaders([
+                    'X-WebSocket-API-Key' => $this->apiKey,
                     'Content-Type' => 'application/json',
-                    'X-API-Key' => $this->apiKey,
                 ])
                 ->post("{$this->baseUrl}/api/broadcast", [
-                    'channel' => $channel,
-                    'event' => $event,
-                    'data' => $data,
-                    'timestamp' => now()->toISOString(),
+                    'event' => 'notification',
+                    'to' => 'user',
+                    'user_id' => $userId,
+                    'data' => $notification
                 ]);
 
             if ($response->successful()) {
-                Log::info('Realtime notification sent', [
-                    'channel' => $channel,
-                    'event' => $event,
-                    'response' => $response->json()
+                Log::info('Realtime notification sent successfully', [
+                    'user_id' => $userId,
+                    'notification_id' => $notification['id'] ?? null
                 ]);
-                return $response->json();
+                return true;
             }
 
-            Log::error('Failed to send realtime notification', [
-                'channel' => $channel,
-                'event' => $event,
+            Log::warning('Failed to send realtime notification', [
+                'user_id' => $userId,
                 'status' => $response->status(),
                 'response' => $response->body()
             ]);
@@ -81,9 +105,8 @@ class RealtimeNotificationService
             return false;
 
         } catch (\Exception $e) {
-            Log::error('Realtime notification exception', [
-                'channel' => $channel,
-                'event' => $event,
+            Log::error('Error sending realtime notification', [
+                'user_id' => $userId,
                 'error' => $e->getMessage()
             ]);
             return false;
@@ -91,206 +114,269 @@ class RealtimeNotificationService
     }
 
     /**
-     * Kiểm tra health của Realtime Server
+     * Send thread update to all participants
      */
-    public function checkHealth()
+    public function sendThreadUpdate(int $threadId, array $data): bool
     {
         try {
-            $response = Http::timeout(5)->get("{$this->baseUrl}/api/health");
-            return $response->successful() ? $response->json() : false;
+            $response = Http::timeout($this->timeout)
+                ->withHeaders([
+                    'X-WebSocket-API-Key' => $this->apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post("{$this->baseUrl}/api/broadcast", [
+                    'event' => 'thread_updated',
+                    'to' => 'thread',
+                    'thread_id' => $threadId,
+                    'data' => $data
+                ]);
+
+            return $response->successful();
+
         } catch (\Exception $e) {
-            Log::error('Realtime server health check failed', ['error' => $e->getMessage()]);
+            Log::error('Error sending thread update', [
+                'thread_id' => $threadId,
+                'error' => $e->getMessage()
+            ]);
             return false;
+        }
+    }
+
+    /**
+     * Send new reply notification
+     */
+    public function sendNewReply(int $threadId, array $reply): bool
+    {
+        try {
+            $response = Http::timeout($this->timeout)
+                ->withHeaders([
+                    'X-WebSocket-API-Key' => $this->apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post("{$this->baseUrl}/api/broadcast", [
+                    'event' => 'new_reply',
+                    'to' => 'thread',
+                    'thread_id' => $threadId,
+                    'data' => $reply
+                ]);
+
+            return $response->successful();
+
+        } catch (\Exception $e) {
+            Log::error('Error sending new reply notification', [
+                'thread_id' => $threadId,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Test connection to realtime server
+     */
+    public function testConnection(): array
+    {
+        try {
+            $response = Http::timeout(5)
+                ->get("{$this->baseUrl}/health");
+
+            if ($response->successful()) {
+                return [
+                    'status' => 'success',
+                    'message' => 'Connection successful',
+                    'data' => $response->json()
+                ];
+            }
+
+            return [
+                'status' => 'error',
+                'message' => 'Connection failed',
+                'http_status' => $response->status()
+            ];
+
+        } catch (\Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Connection error: ' . $e->getMessage()
+            ];
         }
     }
 }
 ```
 
-### 2. Cấu hình trong config/services.php
+### **Service Provider Registration**
+
+```php
+<?php
+
+namespace App\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use App\Services\RealtimeNotificationService;
+
+class RealtimeServiceProvider extends ServiceProvider
+{
+    public function register()
+    {
+        $this->app->singleton(RealtimeNotificationService::class, function ($app) {
+            return new RealtimeNotificationService();
+        });
+    }
+
+    public function boot()
+    {
+        //
+    }
+}
+```
+
+**Register in `config/app.php`:**
+```php
+'providers' => [
+    // ...
+    App\Providers\RealtimeServiceProvider::class,
+],
+```
+
+## 🔧 **Configuration Files**
+
+### **config/websocket.php**
 
 ```php
 <?php
 
 return [
-    // ... other services
+    'server' => [
+        'url' => env('WEBSOCKET_SERVER_URL', 'https://realtime.mechamap.com'),
+        'host' => env('WEBSOCKET_SERVER_HOST', 'realtime.mechamap.com'),
+        'port' => env('WEBSOCKET_SERVER_PORT', 443),
+        'secure' => env('WEBSOCKET_SERVER_SECURE', true),
+    ],
 
-    'realtime' => [
-        'url' => env('REALTIME_SERVER_URL', 'https://realtime.mechamap.com'),
-        'api_key' => env('REALTIME_API_KEY', 'mechamap_ws_kCTy45s4obktB6IJJH6DpKHzoveEJLgrnmbST8fxwufexn0u80RnqMSO51ubWVQ3'),
-        'timeout' => env('REALTIME_TIMEOUT', 10),
-        'enabled' => env('REALTIME_ENABLED', true),
+    'api_key' => env('WEBSOCKET_API_KEY'),
+    'api_key_hash' => env('WEBSOCKET_API_KEY_HASH'),
+
+    'broadcasting' => [
+        'url' => env('NODEJS_BROADCAST_URL', 'https://realtime.mechamap.com'),
+        'timeout' => 10,
+        'retry_attempts' => 3,
+    ],
+
+    'events' => [
+        'notification' => 'notification',
+        'thread_updated' => 'thread_updated',
+        'new_reply' => 'new_reply',
+        'user_online' => 'user_online',
+        'user_offline' => 'user_offline',
     ],
 ];
 ```
 
-### 3. Environment Variables (.env)
+## 📡 **Usage Examples**
 
-```env
-# MechaMap Realtime Server
-REALTIME_SERVER_URL=https://realtime.mechamap.com
-REALTIME_API_KEY=mechamap_ws_kCTy45s4obktB6IJJH6DpKHzoveEJLgrnmbST8fxwufexn0u80RnqMSO51ubWVQ3
-REALTIME_TIMEOUT=10
-REALTIME_ENABLED=true
-```
-
-## 📡 Các loại thông báo
-
-### 1. Thông báo tin nhắn mới
+### **Send Notification**
 
 ```php
 <?php
 
 use App\Services\RealtimeNotificationService;
 
-class MessageController extends Controller
+class NotificationController extends Controller
 {
-    private $realtimeService;
-
-    public function __construct(RealtimeNotificationService $realtimeService)
+    public function sendNotification(Request $request, RealtimeNotificationService $realtimeService)
     {
-        $this->realtimeService = $realtimeService;
+        $notification = [
+            'id' => 'notif_' . uniqid(),
+            'type' => 'thread_reply',
+            'title' => 'New reply to your thread',
+            'message' => 'Someone replied to your thread',
+            'data' => [
+                'thread_id' => $request->thread_id,
+                'reply_id' => $request->reply_id,
+                'user' => [
+                    'id' => auth()->id(),
+                    'name' => auth()->user()->name,
+                    'avatar' => auth()->user()->avatar_url
+                ]
+            ],
+            'timestamp' => now()->toISOString(),
+            'read' => false
+        ];
+
+        $success = $realtimeService->sendNotificationToUser(
+            $request->user_id,
+            $notification
+        );
+
+        return response()->json([
+            'success' => $success,
+            'message' => $success ? 'Notification sent' : 'Failed to send notification'
+        ]);
     }
+}
+```
 
-    public function sendMessage(Request $request)
+### **Thread Reply Event**
+
+```php
+<?php
+
+use App\Services\RealtimeNotificationService;
+
+class ThreadReplyController extends Controller
+{
+    public function store(Request $request, RealtimeNotificationService $realtimeService)
     {
-        // Lưu tin nhắn vào database
-        $message = Message::create([
-            'sender_id' => auth()->id(),
-            'receiver_id' => $request->receiver_id,
+        // Create reply in database
+        $reply = ThreadReply::create([
+            'thread_id' => $request->thread_id,
+            'user_id' => auth()->id(),
             'content' => $request->content,
         ]);
 
-        // Gửi thông báo real-time
-        $this->realtimeService->sendToUser($request->receiver_id, 'notification.sent', [
-            'id' => $message->id,
-            'type' => 'message',
-            'title' => 'Tin nhắn mới',
-            'message' => 'Bạn có tin nhắn mới từ ' . auth()->user()->name,
-            'data' => [
-                'message_id' => $message->id,
-                'sender_id' => auth()->id(),
-                'sender_name' => auth()->user()->name,
-                'sender_avatar' => auth()->user()->avatar,
-                'content' => $message->content,
+        // Send real-time notification
+        $realtimeService->sendNewReply($request->thread_id, [
+            'reply_id' => $reply->id,
+            'thread_id' => $reply->thread_id,
+            'content' => $reply->content,
+            'author' => [
+                'id' => auth()->id(),
+                'name' => auth()->user()->name,
+                'avatar' => auth()->user()->avatar_url,
+                'role' => auth()->user()->role
             ],
-            'created_at' => $message->created_at->toISOString(),
+            'created_at' => $reply->created_at->toISOString()
         ]);
 
-        return response()->json(['success' => true, 'message' => $message]);
-    }
-}
-```
-
-### 2. Thông báo cập nhật trạng thái
-
-```php
-<?php
-
-public function updateOrderStatus($orderId, $status)
-{
-    $order = Order::findOrFail($orderId);
-    $order->update(['status' => $status]);
-
-    // Gửi thông báo đến user
-    $this->realtimeService->sendToUser($order->user_id, 'notification.sent', [
-        'id' => uniqid(),
-        'type' => 'order_update',
-        'title' => 'Cập nhật đơn hàng',
-        'message' => "Đơn hàng #{$order->id} đã được cập nhật: {$status}",
-        'data' => [
-            'order_id' => $order->id,
-            'status' => $status,
-            'updated_at' => now()->toISOString(),
-        ],
-    ]);
-
-    return $order;
-}
-```
-
-### 3. Thông báo hệ thống
-
-```php
-<?php
-
-public function sendSystemNotification($userIds, $title, $message, $data = [])
-{
-    foreach ($userIds as $userId) {
-        $this->realtimeService->sendToUser($userId, 'notification.sent', [
-            'id' => uniqid(),
-            'type' => 'system',
-            'title' => $title,
-            'message' => $message,
-            'data' => $data,
-            'created_at' => now()->toISOString(),
+        return response()->json([
+            'success' => true,
+            'reply' => $reply
         ]);
     }
 }
 ```
 
-## 🎯 Event Listeners
-
-### 1. Tạo Event Listener
+### **Test Connection**
 
 ```php
 <?php
 
-namespace App\Listeners;
-
-use App\Events\MessageSent;
 use App\Services\RealtimeNotificationService;
-use Illuminate\Contracts\Queue\ShouldQueue;
 
-class SendRealtimeNotification implements ShouldQueue
+class HealthController extends Controller
 {
-    private $realtimeService;
-
-    public function __construct(RealtimeNotificationService $realtimeService)
+    public function testRealtimeConnection(RealtimeNotificationService $realtimeService)
     {
-        $this->realtimeService = $realtimeService;
-    }
-
-    public function handle(MessageSent $event)
-    {
-        $message = $event->message;
+        $result = $realtimeService->testConnection();
         
-        $this->realtimeService->sendToUser($message->receiver_id, 'notification.sent', [
-            'id' => $message->id,
-            'type' => 'message',
-            'title' => 'Tin nhắn mới',
-            'message' => 'Bạn có tin nhắn mới từ ' . $message->sender->name,
-            'data' => [
-                'message_id' => $message->id,
-                'sender_id' => $message->sender_id,
-                'sender_name' => $message->sender->name,
-                'content' => $message->content,
-            ],
-            'created_at' => $message->created_at->toISOString(),
-        ]);
+        return response()->json($result);
     }
 }
 ```
 
-### 2. Đăng ký Event Listener
+## 🧪 **Testing**
 
-```php
-<?php
-
-// app/Providers/EventServiceProvider.php
-
-protected $listen = [
-    MessageSent::class => [
-        SendRealtimeNotification::class,
-    ],
-    OrderStatusUpdated::class => [
-        SendOrderUpdateNotification::class,
-    ],
-];
-```
-
-## 🔧 Artisan Commands
-
-### 1. Command test kết nối
+### **Artisan Command for Testing**
 
 ```php
 <?php
@@ -302,370 +388,71 @@ use App\Services\RealtimeNotificationService;
 
 class TestRealtimeConnection extends Command
 {
-    protected $signature = 'realtime:test {user_id?}';
-    protected $description = 'Test connection to MechaMap Realtime Server';
+    protected $signature = 'realtime:test';
+    protected $description = 'Test connection to realtime server';
 
-    private $realtimeService;
-
-    public function __construct(RealtimeNotificationService $realtimeService)
+    public function handle(RealtimeNotificationService $realtimeService)
     {
-        parent::__construct();
-        $this->realtimeService = $realtimeService;
-    }
+        $this->info('Testing realtime server connection...');
 
-    public function handle()
-    {
-        $this->info('Testing MechaMap Realtime Server connection...');
+        $result = $realtimeService->testConnection();
 
-        // Test health check
-        $health = $this->realtimeService->checkHealth();
-        if ($health) {
-            $this->info('✅ Health check passed');
-            $this->line('Server status: ' . $health['status']);
-            $this->line('Uptime: ' . $health['uptime'] . ' seconds');
+        if ($result['status'] === 'success') {
+            $this->info('✅ Connection successful!');
+            $this->line('Server status: ' . ($result['data']['status'] ?? 'unknown'));
         } else {
-            $this->error('❌ Health check failed');
-            return 1;
+            $this->error('❌ Connection failed!');
+            $this->line('Error: ' . $result['message']);
         }
 
-        // Test notification
-        $userId = $this->argument('user_id') ?? 1;
-        $result = $this->realtimeService->sendToUser($userId, 'test.notification', [
-            'title' => 'Test Notification',
-            'message' => 'This is a test notification from Laravel',
-            'timestamp' => now()->toISOString(),
-        ]);
-
-        if ($result) {
-            $this->info("✅ Test notification sent to user {$userId}");
-            $this->line('Response: ' . json_encode($result, JSON_PRETTY_PRINT));
-        } else {
-            $this->error("❌ Failed to send test notification to user {$userId}");
-            return 1;
-        }
-
-        return 0;
+        return $result['status'] === 'success' ? 0 : 1;
     }
 }
 ```
 
-### 2. Command gửi thông báo hàng loạt
-
-```php
-<?php
-
-namespace App\Console\Commands;
-
-use Illuminate\Console\Command;
-use App\Services\RealtimeNotificationService;
-use App\Models\User;
-
-class SendBulkNotification extends Command
-{
-    protected $signature = 'realtime:broadcast {title} {message} {--users=all}';
-    protected $description = 'Send notification to multiple users';
-
-    private $realtimeService;
-
-    public function __construct(RealtimeNotificationService $realtimeService)
-    {
-        parent::__construct();
-        $this->realtimeService = $realtimeService;
-    }
-
-    public function handle()
-    {
-        $title = $this->argument('title');
-        $message = $this->argument('message');
-        $usersOption = $this->option('users');
-
-        if ($usersOption === 'all') {
-            $users = User::all();
-        } else {
-            $userIds = explode(',', $usersOption);
-            $users = User::whereIn('id', $userIds)->get();
-        }
-
-        $this->info("Sending notification to {$users->count()} users...");
-
-        $successCount = 0;
-        $failCount = 0;
-
-        foreach ($users as $user) {
-            $result = $this->realtimeService->sendToUser($user->id, 'notification.sent', [
-                'id' => uniqid(),
-                'type' => 'system',
-                'title' => $title,
-                'message' => $message,
-                'created_at' => now()->toISOString(),
-            ]);
-
-            if ($result) {
-                $successCount++;
-            } else {
-                $failCount++;
-            }
-        }
-
-        $this->info("✅ Successfully sent: {$successCount}");
-        if ($failCount > 0) {
-            $this->warn("❌ Failed to send: {$failCount}");
-        }
-
-        return 0;
-    }
-}
+**Run test:**
+```bash
+php artisan realtime:test
 ```
 
-## 🔍 Middleware xác thực
+## 🔍 **Debugging**
 
-### 1. Middleware cho Realtime Server
-
-```php
-<?php
-
-namespace App\Http\Middleware;
-
-use Closure;
-use Illuminate\Http\Request;
-
-class RealtimeServerAuth
-{
-    public function handle(Request $request, Closure $next)
-    {
-        $apiKey = $request->header('X-API-Key');
-        $expectedKey = config('services.realtime.api_key');
-
-        if (!$apiKey || $apiKey !== $expectedKey) {
-            return response()->json([
-                'error' => 'Unauthorized',
-                'message' => 'Invalid API key'
-            ], 401);
-        }
-
-        return $next($request);
-    }
-}
-```
-
-### 2. Routes cho Realtime Server callback
+### **Enable Debug Logging**
 
 ```php
-<?php
-
-// routes/api.php
-
-Route::middleware(['realtime.auth'])->prefix('realtime')->group(function () {
-    Route::post('/webhook/message-delivered', [RealtimeController::class, 'messageDelivered']);
-    Route::post('/webhook/user-connected', [RealtimeController::class, 'userConnected']);
-    Route::post('/webhook/user-disconnected', [RealtimeController::class, 'userDisconnected']);
-});
+// In your service method
+Log::debug('Sending realtime notification', [
+    'url' => $this->baseUrl,
+    'payload' => $payload,
+    'headers' => $headers
+]);
 ```
 
-## 📊 Monitoring và Logging
-
-### 1. Health Check Job
-
-```php
-<?php
-
-namespace App\Jobs;
-
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use App\Services\RealtimeNotificationService;
-use Illuminate\Support\Facades\Log;
-
-class CheckRealtimeServerHealth implements ShouldQueue
-{
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    private $realtimeService;
-
-    public function __construct(RealtimeNotificationService $realtimeService)
-    {
-        $this->realtimeService = $realtimeService;
-    }
-
-    public function handle()
-    {
-        $health = $this->realtimeService->checkHealth();
-        
-        if (!$health) {
-            Log::error('MechaMap Realtime Server is down');
-            // Gửi alert đến admin
-        } else {
-            Log::info('MechaMap Realtime Server health check passed', $health);
-        }
-    }
-}
-```
-
-### 2. Schedule Health Check
-
-```php
-<?php
-
-// app/Console/Kernel.php
-
-protected function schedule(Schedule $schedule)
-{
-    // Check realtime server health every 5 minutes
-    $schedule->job(CheckRealtimeServerHealth::class)->everyFiveMinutes();
-}
-```
-
-## 🧪 Testing
-
-### 1. Feature Test
-
-```php
-<?php
-
-namespace Tests\Feature;
-
-use Tests\TestCase;
-use App\Services\RealtimeNotificationService;
-use Illuminate\Support\Facades\Http;
-
-class RealtimeNotificationTest extends TestCase
-{
-    public function test_can_send_notification_to_user()
-    {
-        Http::fake([
-            'https://realtime.mechamap.com/api/broadcast' => Http::response([
-                'success' => true,
-                'message' => 'Message broadcasted successfully',
-                'recipients' => 1
-            ], 200)
-        ]);
-
-        $service = new RealtimeNotificationService();
-        $result = $service->sendToUser(1, 'test.notification', [
-            'title' => 'Test',
-            'message' => 'Test message'
-        ]);
-
-        $this->assertTrue($result !== false);
-        $this->assertEquals('Message broadcasted successfully', $result['message']);
-    }
-
-    public function test_handles_failed_notification()
-    {
-        Http::fake([
-            'https://realtime.mechamap.com/api/broadcast' => Http::response([
-                'error' => 'Server error'
-            ], 500)
-        ]);
-
-        $service = new RealtimeNotificationService();
-        $result = $service->sendToUser(1, 'test.notification', [
-            'title' => 'Test',
-            'message' => 'Test message'
-        ]);
-
-        $this->assertFalse($result);
-    }
-}
-```
-
-## 📋 Checklist tích hợp
-
-### Setup ban đầu
-- [ ] Thêm service class `RealtimeNotificationService`
-- [ ] Cấu hình `config/services.php`
-- [ ] Thêm environment variables
-- [ ] Test kết nối với `php artisan realtime:test`
-
-### Tích hợp thông báo
-- [ ] Tích hợp vào message system
-- [ ] Tích hợp vào order updates
-- [ ] Tích hợp vào system notifications
-- [ ] Setup event listeners
-
-### Monitoring
-- [ ] Setup health check job
-- [ ] Configure logging
-- [ ] Setup alerts cho downtime
-- [ ] Monitor performance
-
-### Testing
-- [ ] Unit tests cho service
-- [ ] Feature tests cho notifications
-- [ ] Manual testing với frontend
-- [ ] Load testing
-
-## 🆘 Troubleshooting
-
-### Lỗi thường gặp
-
-1. **Connection timeout**
-   - Kiểm tra network connectivity
-   - Tăng timeout trong config
-   - Kiểm tra firewall settings
-
-2. **Authentication failed**
-   - Kiểm tra API key
-   - Verify headers được gửi đúng
-   - Check server logs
-
-3. **Message not delivered**
-   - Kiểm tra user có đang online không
-   - Verify channel name format
-   - Check WebSocket connection
-
-### Debug commands
+### **Check Logs**
 
 ```bash
-# Test connection
-php artisan realtime:test
+# Laravel logs
+tail -f storage/logs/laravel.log
 
-# Send test notification
-php artisan realtime:test 123
-
-# Check health
-curl https://realtime.mechamap.com/api/health
-
-# View logs
-tail -f storage/logs/laravel.log | grep -i realtime
+# Realtime server logs
+pm2 logs mechamap-realtime
 ```
 
-Tài liệu này cung cấp tất cả thông tin cần thiết để team Laravel tích hợp với MechaMap Realtime Server một cách hiệu quả.
+## ⚠️ **Best Practices**
 
-## 🔗 Liên kết với Frontend
+1. **Error Handling**: Always wrap realtime calls in try-catch
+2. **Timeouts**: Set reasonable timeouts (10 seconds max)
+3. **Logging**: Log all realtime operations for debugging
+4. **Fallbacks**: Don't fail main operations if realtime fails
+5. **Rate Limiting**: Respect realtime server rate limits
+6. **Security**: Never expose API keys in frontend
 
-Để frontend có thể kết nối WebSocket, cần:
+## 🔗 **Related Documentation**
 
-1. **Lấy Sanctum token từ Laravel:**
-```php
-// API endpoint để frontend lấy token
-Route::middleware('auth:sanctum')->get('/user/websocket-token', function (Request $request) {
-    return response()->json([
-        'token' => $request->user()->createToken('websocket')->plainTextToken,
-        'user_id' => $request->user()->id,
-        'websocket_url' => 'wss://realtime.mechamap.com'
-    ]);
-});
-```
+- **[API Documentation](API.md)** - Complete API reference
+- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment
+- **[Monitoring Guide](MONITORING.md)** - Production monitoring
 
-2. **Frontend sử dụng token để kết nối:**
-```javascript
-// Lấy token từ Laravel API
-const response = await fetch('/api/user/websocket-token', {
-    headers: {
-        'Authorization': `Bearer ${laravelToken}`,
-        'Accept': 'application/json'
-    }
-});
-const { token, user_id, websocket_url } = await response.json();
+---
 
-// Kết nối WebSocket
-const socket = io(websocket_url, {
-    query: { token: token }
-});
-```
-
-Xem thêm chi tiết trong [Frontend Integration Guide](FRONTEND_INTEGRATION.md).
+**Laravel Integration Guide v1.0 - Production Ready** 🚀

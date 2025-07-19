@@ -151,14 +151,14 @@ php artisan realtime:test --full-test
 ```bash
 # Test WebSocket token
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-     http://mechamap.test/api/user/websocket-token
+     http://mechamap.com/api/user/websocket-token
 
 # Test notification
 curl -X POST \
      -H "Authorization: Bearer YOUR_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"user_id":123,"title":"Test","message":"Hello"}' \
-     http://mechamap.test/api/realtime-test/send-notification
+     http://mechamap.com/api/realtime-test/send-notification
 ```
 
 ## 📝 Customization

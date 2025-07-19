@@ -11,9 +11,9 @@
 */
 
 return [
-    
+
     // ... your existing services
-    
+
     /*
     |--------------------------------------------------------------------------
     | MechaMap Realtime Server Configuration
@@ -24,38 +24,38 @@ return [
     |
     */
     'realtime' => [
-        
+
         // Base URL of the realtime server
         'url' => env('REALTIME_SERVER_URL', 'https://realtime.mechamap.com'),
-        
+
         // WebSocket URL for frontend connections
         'websocket_url' => env('REALTIME_WEBSOCKET_URL', 'wss://realtime.mechamap.com'),
-        
+
         // API key for authenticating with the realtime server
         'api_key' => env('REALTIME_API_KEY', 'mechamap_ws_kCTy45s4obktB6IJJH6DpKHzoveEJLgrnmbST8fxwufexn0u80RnqMSO51ubWVQ3'),
-        
+
         // Request timeout in seconds
         'timeout' => env('REALTIME_TIMEOUT', 10),
-        
+
         // Enable/disable realtime notifications
         'enabled' => env('REALTIME_ENABLED', true),
-        
+
         // Retry configuration
         'retry_attempts' => env('REALTIME_RETRY_ATTEMPTS', 3),
         'retry_delay' => env('REALTIME_RETRY_DELAY', 1000), // milliseconds
-        
+
         // Connection limits
         'max_connections_per_user' => env('REALTIME_MAX_CONNECTIONS', 5),
-        
+
         // Token expiration (in hours)
         'token_expiration' => env('REALTIME_TOKEN_EXPIRATION', 24),
-        
+
         // Health check cache duration (in seconds)
         'health_cache_duration' => env('REALTIME_HEALTH_CACHE', 30),
-        
+
         // Notification settings
         'notifications' => [
-            
+
             // Default notification settings
             'defaults' => [
                 'priority' => 'normal', // low, normal, high
@@ -63,7 +63,7 @@ return [
                 'badge' => true,
                 'vibration' => true,
             ],
-            
+
             // Notification types configuration
             'types' => [
                 'message' => [
@@ -97,7 +97,7 @@ return [
                     'template' => 'Chào mừng đến với MechaMap!',
                 ],
             ],
-            
+
             // Rate limiting for notifications
             'rate_limits' => [
                 'per_user_per_minute' => 10,
@@ -105,10 +105,10 @@ return [
                 'global_per_minute' => 1000,
             ],
         ],
-        
+
         // Channel configuration
         'channels' => [
-            
+
             // Channel prefixes
             'prefixes' => [
                 'user' => 'private-user.',
@@ -116,7 +116,7 @@ return [
                 'public' => 'public.',
                 'system' => 'system.',
             ],
-            
+
             // Channel permissions
             'permissions' => [
                 'private-user.*' => ['owner', 'admin'],
@@ -125,7 +125,7 @@ return [
                 'system.*' => ['admin'],
             ],
         ],
-        
+
         // Development/Testing settings
         'development' => [
             'enabled' => env('APP_ENV') !== 'production',
@@ -133,7 +133,7 @@ return [
             'fake_responses' => env('REALTIME_FAKE_RESPONSES', false),
             'test_user_id' => env('REALTIME_TEST_USER_ID', 1),
         ],
-        
+
         // Monitoring and alerting
         'monitoring' => [
             'enabled' => env('REALTIME_MONITORING_ENABLED', true),
@@ -142,7 +142,7 @@ return [
             'health_check_interval' => env('REALTIME_HEALTH_CHECK_INTERVAL', 300), // seconds
         ],
     ],
-    
+
     // ... your other services
 ];
 
@@ -172,8 +172,8 @@ return [
 | REALTIME_FAILURE_THRESHOLD=5
 | REALTIME_HEALTH_CHECK_INTERVAL=300
 |
-| # CORS Configuration for development
-| SANCTUM_STATEFUL_DOMAINS=mechamap.test,localhost,127.0.0.1
-| SESSION_DOMAIN=.mechamap.test
+| # CORS Configuration for production
+| SANCTUM_STATEFUL_DOMAINS=mechamap.com,www.mechamap.com
+| SESSION_DOMAIN=.mechamap.com
 |
 */

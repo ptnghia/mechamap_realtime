@@ -1,18 +1,34 @@
-# Tài liệu API - MechaMap Realtime Server
+# API Documentation - MechaMap Realtime Server
 
-Tài liệu này cung cấp thông tin toàn diện về các API endpoints và WebSocket events của MechaMap Realtime Server.
+🔌 **Complete API reference for MechaMap Realtime Server**
 
-## 🌐 Base URLs
+## 🌐 **Base URLs**
 
 - **Development**: `http://localhost:3000`
 - **Production**: `https://realtime.mechamap.com`
 
-## 🔌 REST API Endpoints
+## 🔐 **Authentication**
 
-### 📊 Health & Status Endpoints
+### **API Key Authentication**
+All Laravel API calls require API key in header:
+```http
+X-WebSocket-API-Key: your_api_key_here
+```
 
-#### GET `/`
-Thông tin cơ bản về server.
+### **User Authentication**
+WebSocket connections require Sanctum token:
+```javascript
+socket.emit('authenticate', {
+    token: 'sanctum_token_here'
+});
+```
+
+## 🌐 **REST API Endpoints**
+
+### **📊 Health & Status**
+
+#### `GET /`
+Server information and available endpoints.
 
 **Response:**
 ```json
@@ -20,483 +36,425 @@ Thông tin cơ bản về server.
   "service": "MechaMap Realtime Server",
   "message": "WebSocket server is running",
   "version": "1.0.0",
-  "timestamp": "2025-07-18T02:45:42.640Z",
+  "environment": "production",
+  "timestamp": "2025-07-19T10:30:00.000Z",
   "endpoints": {
-    "health": "/api/health",
-    "status": "/api/status",
-    "metrics": "/api/metrics",
-    "broadcast": "POST /api/broadcast"
+    "health": "/health",
+    "status": "/status", 
+    "metrics": "/metrics"
   },
   "websocket": {
-    "url": "ws://localhost:3000",
+    "url": "wss://realtime.mechamap.com",
     "transports": ["websocket", "polling"]
   }
 }
 ```
 
-#### GET `/api/health`
-Health check endpoint cơ bản.
+#### `GET /health`
+Basic health check endpoint.
 
 **Response:**
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-07-18T02:45:42.640Z",
-  "uptime": 2272,
+  "timestamp": "2025-07-19T10:30:00.000Z",
+  "uptime": 86400,
   "memory": {
-    "used": 79.2,
+    "used": 256.5,
     "total": 2048,
-    "percentage": 3.87
+    "percentage": 12.5
   },
   "connections": {
-    "active": 0,
-    "total": 0
+    "active": 150,
+    "total": 1250
   }
 }
 ```
 
-#### GET `/api/status`
-Thông tin trạng thái server chi tiết.
+#### `GET /status`
+Detailed server status and metrics.
 
 **Response:**
 ```json
 {
-  "status": "online",
-  "environment": "production",
-  "version": "1.0.0",
-  "uptime": 2272,
-  "connections": 0,
-  "memory_usage": "79.2 MB",
-  "cpu_usage": "0.5%"
-}
-```
-
-#### GET `/api/metrics`
-Metrics cơ bản của server.
-
-**Response:**
-```json
-{
-  "connections": {
-    "active": 0,
-    "total": 0,
-    "peak": 0
-  },
-  "requests": {
-    "total": 5,
-    "success": 5,
-    "errors": 0
-  },
-  "performance": {
-    "avg_response_time": 0.2,
-    "uptime": 2272
-  }
-}
-```
-
-### 📈 Monitoring Endpoints
-
-#### GET `/api/monitoring/health`
-Health check chi tiết với monitoring data.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-07-18T02:45:42.640Z",
-  "uptime": 2272,
-  "system": {
-    "memory": {
-      "used": 79.2,
-      "total": 2048,
-      "percentage": 3.87
-    },
-    "cpu": {
-      "usage": 0.5
+  "status": "operational",
+  "timestamp": "2025-07-19T10:30:00.000Z",
+  "server": {
+    "uptime": 86400,
+    "environment": "production",
+    "node_version": "18.17.0",
+    "memory_usage": {
+      "rss": 256.5,
+      "heapTotal": 180.2,
+      "heapUsed": 120.8,
+      "external": 15.3
     }
-  },
-  "connections": {
-    "active": 0,
-    "total": 0,
-    "peak": 0
   },
   "database": {
     "status": "connected",
-    "connections": 1
+    "connections": 5,
+    "response_time": 12
+  },
+  "websocket": {
+    "active_connections": 150,
+    "total_connections": 1250,
+    "rooms": 45,
+    "events_per_minute": 320
   }
 }
 ```
 
-#### GET `/api/monitoring/metrics`
-Performance metrics chi tiết.
+#### `GET /metrics`
+Prometheus-compatible metrics endpoint.
 
 **Response:**
-```json
-{
-  "connections": {
-    "active": 0,
-    "total": 0,
-    "peak": 0,
-    "by_user": {}
-  },
-  "requests": {
-    "total": 5,
-    "success": 5,
-    "errors": 0,
-    "rate": 0.002
-  },
-  "performance": {
-    "avg_response_time": 0.2,
-    "min_response_time": 0.1,
-    "max_response_time": 0.5,
-    "requests_per_second": 0.002
-  },
-  "memory": {
-    "used": 79.2,
-    "total": 2048,
-    "percentage": 3.87
-  },
-  "uptime": 2272
-}
+```
+# HELP websocket_connections_total Total WebSocket connections
+# TYPE websocket_connections_total counter
+websocket_connections_total 1250
+
+# HELP websocket_connections_active Active WebSocket connections
+# TYPE websocket_connections_active gauge
+websocket_connections_active 150
+
+# HELP http_requests_total Total HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{method="GET",status="200"} 5420
 ```
 
-#### GET `/api/monitoring/performance`
-Thống kê hiệu suất.
+## 🔌 **WebSocket Events**
 
-**Response:**
-```json
-{
-  "summary": {
-    "total_requests": 6,
-    "success_rate": 100,
-    "avg_response_time": 0.2,
-    "uptime": 2272
-  },
-  "requests": {
-    "total": 6,
-    "successful": 6,
-    "failed": 0,
-    "slow": 0
-  },
-  "response_times": {
-    "average": 0.2,
-    "min": 0.1,
-    "max": 0.5,
-    "p95": 0.4
-  }
-}
-```
+### **Connection Events**
 
-#### GET `/api/monitoring/connections`
-Thông tin kết nối WebSocket.
+#### `connect`
+Triggered when client connects to WebSocket.
 
-**Response:**
-```json
-{
-  "active_connections": 0,
-  "total_connections": 0,
-  "peak_connections": 0,
-  "connections_by_user": {},
-  "channels": {
-    "total": 0,
-    "active": []
-  }
-}
-```
-
-#### GET `/api/monitoring/info`
-Thông tin hệ thống.
-
-**Response:**
-```json
-{
-  "server": {
-    "name": "MechaMap Realtime Server",
-    "version": "1.0.0",
-    "environment": "production",
-    "node_version": "v18.17.0",
-    "uptime": 2272
-  },
-  "system": {
-    "platform": "linux",
-    "arch": "x64",
-    "memory": {
-      "total": 2048,
-      "used": 79.2
-    }
-  },
-  "configuration": {
-    "port": 3000,
-    "ssl_enabled": false,
-    "cluster_mode": true,
-    "instances": 2
-  }
-}
-```
-
-### 📡 Broadcasting Endpoints
-
-#### POST `/api/broadcast`
-Gửi tin nhắn đến channels cụ thể.
-
-**Headers:**
-```
-Content-Type: application/json
-Authorization: Bearer <laravel-sanctum-token>
-```
-
-**Request Body:**
-```json
-{
-  "channel": "private-user.123",
-  "event": "notification.sent",
-  "data": {
-    "id": 456,
-    "title": "Thông báo mới",
-    "message": "Bạn có một tin nhắn mới",
-    "type": "message",
-    "created_at": "2025-07-18T02:45:42.640Z"
-  }
-}
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "message": "Message broadcasted successfully",
-  "channel": "private-user.123",
-  "event": "notification.sent",
-  "recipients": 1,
-  "timestamp": "2025-07-18T02:45:42.640Z"
-}
-```
-
-**Response (Error):**
-```json
-{
-  "success": false,
-  "error": "Authentication required",
-  "code": 401
-}
-```
-
-## 🌐 WebSocket API
-
-### Connection URL
-```
-ws://localhost:3000/socket.io/          # Development
-wss://realtime.mechamap.com/socket.io/  # Production
-```
-
-### Authentication
-WebSocket connections yêu cầu authentication thông qua:
-- **Laravel Sanctum Token**: Gửi trong query parameter `token`
-- **JWT Token**: Gửi trong query parameter `jwt`
-
-**Example:**
+**Client → Server:**
 ```javascript
-const socket = io('wss://realtime.mechamap.com', {
-  query: {
-    token: 'laravel-sanctum-token'
+// Automatic on socket.io connection
+```
+
+**Server → Client:**
+```javascript
+{
+  "event": "connected",
+  "data": {
+    "socketId": "abc123def456",
+    "timestamp": "2025-07-19T10:30:00.000Z"
   }
+}
+```
+
+#### `authenticate`
+Authenticate user with Sanctum token.
+
+**Client → Server:**
+```javascript
+socket.emit('authenticate', {
+  token: 'sanctum_token_here'
 });
 ```
 
-### Client Events (Client → Server)
-
-#### `subscribe`
-Subscribe vào một channel.
-
-**Payload:**
-```json
-{
-  "channel": "private-user.123"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "channel": "private-user.123",
-  "message": "Subscribed successfully"
-}
-```
-
-#### `unsubscribe`
-Unsubscribe khỏi một channel.
-
-**Payload:**
-```json
-{
-  "channel": "private-user.123"
-}
-```
-
-#### `ping`
-Heartbeat để duy trì kết nối.
-
-**Response:** `pong`
-
-### Server Events (Server → Client)
-
-#### `subscribed`
-Xác nhận subscription thành công.
-
-**Payload:**
-```json
-{
-  "channel": "private-user.123",
-  "timestamp": "2025-07-18T02:45:42.640Z"
-}
-```
-
-#### `notification.sent`
-Thông báo mới được gửi đến.
-
-**Payload:**
-```json
-{
-  "id": 456,
-  "title": "Thông báo mới",
-  "message": "Bạn có một tin nhắn mới",
-  "type": "message",
-  "data": {
-    "sender_id": 789,
-    "sender_name": "Nguyễn Văn A"
-  },
-  "created_at": "2025-07-18T02:45:42.640Z"
-}
-```
-
-#### `notification.read`
-Thông báo đã được đọc trên thiết bị khác.
-
-**Payload:**
-```json
-{
-  "notification_id": 456,
-  "read_at": "2025-07-18T02:45:42.640Z"
-}
-```
-
-#### `user.status`
-Cập nhật trạng thái người dùng.
-
-**Payload:**
-```json
-{
-  "user_id": 123,
-  "status": "online",
-  "last_seen": "2025-07-18T02:45:42.640Z"
-}
-```
-
-#### `error`
-Thông báo lỗi.
-
-**Payload:**
-```json
-{
-  "error": "Authentication failed",
-  "code": 401,
-  "timestamp": "2025-07-18T02:45:42.640Z"
-}
-```
-
-## 🔒 Authentication
-
-### Laravel Sanctum Integration
-Server tích hợp với Laravel backend sử dụng Sanctum tokens:
-
-1. Client lấy token từ Laravel API
-2. Gửi token trong WebSocket connection hoặc API request
-3. Server validate token với Laravel backend
-4. Nếu hợp lệ, cho phép kết nối/request
-
-### JWT Fallback
-Hỗ trợ JWT tokens như phương án dự phòng:
-
+**Server → Client (Success):**
 ```javascript
-const socket = io('wss://realtime.mechamap.com', {
-  query: {
-    jwt: 'jwt-token-here'
+{
+  "event": "authenticated",
+  "data": {
+    "user": {
+      "id": 1,
+      "name": "John Doe",
+      "email": "john@example.com",
+      "role": "admin"
+    },
+    "permissions": ["receive_notifications", "send_messages"],
+    "socketId": "abc123def456"
   }
+}
+```
+
+**Server → Client (Error):**
+```javascript
+{
+  "event": "authentication_error",
+  "data": {
+    "error": "Invalid token",
+    "code": "AUTH_FAILED"
+  }
+}
+```
+
+#### `disconnect`
+Triggered when client disconnects.
+
+**Server → Client:**
+```javascript
+{
+  "event": "disconnected",
+  "data": {
+    "reason": "client_disconnect",
+    "timestamp": "2025-07-19T10:30:00.000Z"
+  }
+}
+```
+
+### **Notification Events**
+
+#### `notification`
+Real-time notification delivery.
+
+**Server → Client:**
+```javascript
+{
+  "event": "notification",
+  "data": {
+    "id": "notif_123",
+    "type": "thread_reply",
+    "title": "New reply to your thread",
+    "message": "Someone replied to your thread 'PLC Programming Tips'",
+    "data": {
+      "thread_id": 456,
+      "reply_id": 789,
+      "user": {
+        "id": 2,
+        "name": "Jane Smith",
+        "avatar": "/images/users/avatars/jane.jpg"
+      }
+    },
+    "timestamp": "2025-07-19T10:30:00.000Z",
+    "read": false
+  }
+}
+```
+
+#### `notification_read`
+Mark notification as read.
+
+**Client → Server:**
+```javascript
+socket.emit('notification_read', {
+  notification_id: 'notif_123'
 });
 ```
 
-## 📊 Error Codes
+**Server → Client:**
+```javascript
+{
+  "event": "notification_updated",
+  "data": {
+    "notification_id": "notif_123",
+    "read": true,
+    "read_at": "2025-07-19T10:30:00.000Z"
+  }
+}
+```
 
-| Code | Message | Description |
-|------|---------|-------------|
-| 200 | OK | Request thành công |
-| 400 | Bad Request | Request không hợp lệ |
-| 401 | Unauthorized | Thiếu hoặc sai authentication |
-| 403 | Forbidden | Không có quyền truy cập |
-| 404 | Not Found | Endpoint không tồn tại |
-| 429 | Too Many Requests | Vượt quá rate limit |
-| 500 | Internal Server Error | Lỗi server nội bộ |
+### **User Status Events**
 
-## 🧪 Testing Examples
+#### `user_online`
+User comes online.
 
-### cURL Examples
+**Server → Client:**
+```javascript
+{
+  "event": "user_online",
+  "data": {
+    "user_id": 2,
+    "name": "Jane Smith",
+    "avatar": "/images/users/avatars/jane.jpg",
+    "last_seen": "2025-07-19T10:30:00.000Z"
+  }
+}
+```
+
+#### `user_offline`
+User goes offline.
+
+**Server → Client:**
+```javascript
+{
+  "event": "user_offline",
+  "data": {
+    "user_id": 2,
+    "last_seen": "2025-07-19T10:30:00.000Z"
+  }
+}
+```
+
+#### `typing_start`
+User starts typing.
+
+**Client → Server:**
+```javascript
+socket.emit('typing_start', {
+  thread_id: 456
+});
+```
+
+**Server → Client:**
+```javascript
+{
+  "event": "user_typing",
+  "data": {
+    "user_id": 1,
+    "name": "John Doe",
+    "thread_id": 456,
+    "typing": true
+  }
+}
+```
+
+#### `typing_stop`
+User stops typing.
+
+**Client → Server:**
+```javascript
+socket.emit('typing_stop', {
+  thread_id: 456
+});
+```
+
+### **Thread Events**
+
+#### `thread_updated`
+Thread content updated.
+
+**Server → Client:**
+```javascript
+{
+  "event": "thread_updated",
+  "data": {
+    "thread_id": 456,
+    "title": "Updated PLC Programming Tips",
+    "updated_by": {
+      "id": 1,
+      "name": "John Doe"
+    },
+    "updated_at": "2025-07-19T10:30:00.000Z"
+  }
+}
+```
+
+#### `new_reply`
+New reply added to thread.
+
+**Server → Client:**
+```javascript
+{
+  "event": "new_reply",
+  "data": {
+    "reply_id": 789,
+    "thread_id": 456,
+    "content": "Great tips! Thanks for sharing.",
+    "author": {
+      "id": 2,
+      "name": "Jane Smith",
+      "avatar": "/images/users/avatars/jane.jpg",
+      "role": "member"
+    },
+    "created_at": "2025-07-19T10:30:00.000Z"
+  }
+}
+```
+
+## 🔧 **Error Handling**
+
+### **Error Response Format**
+```javascript
+{
+  "event": "error",
+  "data": {
+    "error": "Error message",
+    "code": "ERROR_CODE",
+    "details": {
+      "field": "validation error details"
+    },
+    "timestamp": "2025-07-19T10:30:00.000Z"
+  }
+}
+```
+
+### **Common Error Codes**
+- `AUTH_FAILED`: Authentication failed
+- `INVALID_TOKEN`: Invalid or expired token
+- `PERMISSION_DENIED`: Insufficient permissions
+- `RATE_LIMITED`: Too many requests
+- `VALIDATION_ERROR`: Invalid request data
+- `SERVER_ERROR`: Internal server error
+
+## 📊 **Rate Limiting**
+
+### **Connection Limits**
+- **Max connections per IP**: 10
+- **Max connections per user**: 5
+- **Connection rate**: 5 per minute
+
+### **Event Limits**
+- **Messages per minute**: 60
+- **Notifications per minute**: 30
+- **Typing events per minute**: 120
+
+## 🔍 **Monitoring & Debugging**
+
+### **Debug Events**
+Enable debug mode to receive additional events:
+
+```javascript
+socket.emit('debug_mode', { enabled: true });
+```
+
+**Debug Events:**
+- `connection_stats`: Connection statistics
+- `memory_usage`: Server memory usage
+- `event_metrics`: Event processing metrics
+
+### **Health Check Integration**
+Monitor server health via HTTP endpoints:
 
 ```bash
-# Health check
-curl -s https://realtime.mechamap.com/api/health
+# Basic health check
+curl https://realtime.mechamap.com/health
 
-# Broadcast message
-curl -X POST https://realtime.mechamap.com/api/broadcast \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-token" \
-  -d '{
-    "channel": "private-user.123",
-    "event": "notification.sent",
-    "data": {
-      "title": "Test notification",
-      "message": "This is a test"
-    }
-  }'
+# Detailed status
+curl https://realtime.mechamap.com/status
+
+# Metrics for monitoring
+curl https://realtime.mechamap.com/metrics
 ```
 
-### JavaScript Client Example
+## 📚 **Client Libraries**
 
+### **JavaScript/Browser**
 ```javascript
-// Kết nối WebSocket
-const socket = io('wss://realtime.mechamap.com', {
-  query: {
-    token: 'your-sanctum-token'
-  }
+import io from 'socket.io-client';
+
+const socket = io('https://realtime.mechamap.com', {
+  transports: ['websocket', 'polling'],
+  secure: true
 });
 
-// Subscribe vào channel
-socket.emit('subscribe', {
-  channel: 'private-user.123'
+socket.on('connect', () => {
+  socket.emit('authenticate', { token: 'sanctum_token' });
 });
 
-// Lắng nghe thông báo
-socket.on('notification.sent', (data) => {
+socket.on('notification', (data) => {
   console.log('New notification:', data);
 });
-
-// Xử lý lỗi
-socket.on('error', (error) => {
-  console.error('Socket error:', error);
-});
 ```
 
-## 📝 Rate Limiting
+### **Node.js**
+```javascript
+const io = require('socket.io-client');
 
-- **Default**: 100 requests per minute per IP
-- **WebSocket**: 5 connections per user
-- **Broadcasting**: 10 messages per minute per user
+const socket = io('https://realtime.mechamap.com');
+socket.emit('authenticate', { token: 'sanctum_token' });
+```
 
-## 🔗 CORS Configuration
+## 🔗 **Related Documentation**
 
-Server được cấu hình CORS cho:
-- `https://mechamap.com`
-- `https://www.mechamap.com`
-- `https://realtime.mechamap.com`
+- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment
+- **[Laravel Integration](LARAVEL_INTEGRATION.md)** - Backend integration
+- **[Monitoring Guide](MONITORING.md)** - Production monitoring
 
-Credentials được cho phép cho cross-origin requests.
+---
+
+**API Documentation v1.0 - Updated for Production** 🚀
