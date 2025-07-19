@@ -22,12 +22,16 @@ module.exports = {
     monitoring: true,
     pmx: true,
 
-    // Auto-restart configuration
-    max_memory_restart: '2G',
+    // Auto-restart configuration - Aggressive memory management
+    max_memory_restart: '512M',
     min_uptime: '10s',
     max_restarts: 15,
     autorestart: true,
     watch: false,
+
+    // Memory monitoring
+    memory_limit: '512M',
+    kill_timeout: 3000,
 
     // Logging
     log_file: './logs/combined.log',
@@ -39,8 +43,8 @@ module.exports = {
     kill_timeout: 5000,
     listen_timeout: 3000,
 
-    // Environment-specific settings
-    node_args: '--max-old-space-size=4096',
+    // Environment-specific settings - Optimized for 4GB VPS
+    node_args: '--max-old-space-size=512 --optimize-for-size --expose-gc',
 
     // Health monitoring
     health_check_grace_period: 3000,

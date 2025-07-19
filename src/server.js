@@ -17,6 +17,7 @@ const { getCorsConfig, socketCorsConfig, corsLogger } = require('./config/cors')
 // Enhanced utilities
 const errorHandler = require('./utils/errorHandler');
 const performanceMonitor = require('./utils/performanceMonitor');
+const GCOptimizer = require('../scripts/gc-optimizer');
 
 class RealtimeServer {
   constructor() {
@@ -26,6 +27,14 @@ class RealtimeServer {
     this.connections = new Map();
     this.userConnections = new Map();
     this.monitoring = new MonitoringMiddleware();
+
+    // Initialize GC Optimizer
+    this.gcOptimizer = new GCOptimizer({
+      gcInterval: 30000, // 30 seconds
+      memoryThreshold: 0.75, // 75%
+      forceGCThreshold: 0.85, // 85%
+      logger: logger
+    });
   }
 
   /**
@@ -57,6 +66,17 @@ class RealtimeServer {
         connections: this.connections.size,
         users: this.userConnections.size,
         version: require('../package.json').version
+      });
+    });
+
+    // Memory monitoring endpoint
+    this.app.get('/api/memory', (req, res) => {
+      const memoryReport = this.gcOptimizer.getMemoryReport();
+      res.json({
+        ...memoryReport,
+        connections: this.connections.size,
+        users: this.userConnections.size,
+        recommendations: this.getMemoryRecommendations(memoryReport)
       });
     });
 
@@ -206,7 +226,7 @@ class RealtimeServer {
     // Track disconnection in monitoring
     this.monitoring.trackDisconnection(socketId, userId, userRole, reason);
 
-    // Remove connection tracking
+    // Remove connection tracking with memory cleanup
     this.connections.delete(socketId);
 
     if (this.userConnections.has(userId)) {
@@ -218,6 +238,10 @@ class RealtimeServer {
       }
     }
 
+    // Clean up socket references to prevent memory leaks
+    socket.removeAllListeners();
+    socket = null;
+
     logger.info(`User disconnected: ${userId}`, {
       userId,
       socketId,
@@ -228,6 +252,50 @@ class RealtimeServer {
         ? this.userConnections.get(userId).size
         : 0
     });
+
+    // Trigger GC check after disconnection
+    if (this.connections.size % 10 === 0) {
+      this.gcOptimizer.checkMemoryUsage();
+    }
+  }
+
+  /**
+   * Get memory recommendations based on current usage
+   */
+  getMemoryRecommendations(memoryReport) {
+    const recommendations = [];
+
+    if (memoryReport.memory.heapUsagePercent > 85) {
+      recommendations.push({
+        level: 'critical',
+        message: 'Heap usage > 85% - Immediate action required',
+        actions: ['Force garbage collection', 'Restart instance', 'Check for memory leaks']
+      });
+    } else if (memoryReport.memory.heapUsagePercent > 75) {
+      recommendations.push({
+        level: 'warning',
+        message: 'Heap usage > 75% - Monitor closely',
+        actions: ['Schedule garbage collection', 'Review connection count']
+      });
+    }
+
+    if (memoryReport.gc.detachedContexts > 0) {
+      recommendations.push({
+        level: 'critical',
+        message: 'Memory leak detected - Detached contexts found',
+        actions: ['Investigate event listeners', 'Check for circular references']
+      });
+    }
+
+    if (this.connections.size > 1000) {
+      recommendations.push({
+        level: 'info',
+        message: 'High connection count detected',
+        actions: ['Consider connection pooling', 'Monitor per-user limits']
+      });
+    }
+
+    return recommendations;
   }
 
   /**
