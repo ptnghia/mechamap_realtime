@@ -17,7 +17,7 @@ module.exports = {
     min_uptime: '5s',
     max_restarts: 10,
     autorestart: true,
-    watch: true,
+    watch: false,
     memory_limit: '1G',
 
     // Development node args
