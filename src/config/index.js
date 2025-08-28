@@ -10,6 +10,8 @@ const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT) || 3000,
   host: process.env.HOST || '0.0.0.0',
+  domain: process.env.DOMAIN || 'localhost',
+  publicUrl: process.env.PUBLIC_URL || `http://localhost:${parseInt(process.env.PORT) || 3000}`,
 
   // SSL configuration
   ssl: {

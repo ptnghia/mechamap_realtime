@@ -130,6 +130,9 @@ function setupRoutes(app, monitoring = null) {
 
   // Status endpoint
   apiRouter.get('/status', (req, res) => {
+    // In production, SSL is handled by reverse proxy
+    const sslStatus = config.nodeEnv === 'production' ? true : config.ssl.enabled;
+
     res.json({
       service: 'MechaMap Realtime Server',
       status: 'running',
@@ -137,10 +140,11 @@ function setupRoutes(app, monitoring = null) {
       version: require('../../package.json').version,
       environment: config.nodeEnv,
       features: {
-        ssl: config.ssl.enabled,
+        ssl: sslStatus,
         clustering: config.performance.clusterEnabled,
         metrics: config.monitoring.metricsEnabled,
-        redis: !!config.redis.host
+        redis: !!config.redis.host,
+        proxy: config.nodeEnv === 'production' ? 'nginx-reverse-proxy' : 'none'
       }
     });
   });
@@ -169,11 +173,22 @@ function setupRoutes(app, monitoring = null) {
 
   // Root endpoint
   app.get('/', (req, res) => {
+    // Determine the correct WebSocket URL based on environment
+    let websocketUrl;
+    if (config.nodeEnv === 'production') {
+      // In production, use the configured domain with SSL
+      websocketUrl = `wss://${config.domain}`;
+    } else {
+      // In development, use localhost with SSL config
+      websocketUrl = `${config.ssl.enabled ? 'wss' : 'ws'}://localhost:${config.port}`;
+    }
+
     res.json({
       service: 'MechaMap Realtime Server',
       message: 'WebSocket server is running',
       version: require('../../package.json').version,
       timestamp: new Date().toISOString(),
+      environment: config.nodeEnv,
       endpoints: {
         health: '/api/health',
         status: '/api/status',
@@ -181,7 +196,7 @@ function setupRoutes(app, monitoring = null) {
         broadcast: 'POST /api/broadcast'
       },
       websocket: {
-        url: `${config.ssl.enabled ? 'wss' : 'ws'}://localhost:${config.port}`,
+        url: websocketUrl,
         transports: config.websocket.transports
       }
     });

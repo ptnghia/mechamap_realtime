@@ -18,6 +18,7 @@ const { getCorsConfig, socketCorsConfig, corsLogger } = require('./config/cors')
 const errorHandler = require('./utils/errorHandler');
 const performanceMonitor = require('./utils/performanceMonitor');
 const GCOptimizer = require('../scripts/gc-optimizer');
+const MemoryOptimizer = require('../scripts/memory-optimizer');
 
 class RealtimeServer {
   constructor() {
@@ -30,9 +31,17 @@ class RealtimeServer {
 
     // Initialize GC Optimizer
     this.gcOptimizer = new GCOptimizer({
-      gcInterval: 30000, // 30 seconds
-      memoryThreshold: 0.75, // 75%
-      forceGCThreshold: 0.85, // 85%
+      gcInterval: 20000, // 20 seconds
+      memoryThreshold: 0.7, // 70%
+      forceGCThreshold: 0.8, // 80%
+      logger: logger
+    });
+
+    // Initialize Memory Optimizer
+    this.memoryOptimizer = new MemoryOptimizer({
+      warningThreshold: 0.7, // 70%
+      criticalThreshold: 0.8, // 80%
+      emergencyThreshold: 0.9, // 90%
       logger: logger
     });
   }
@@ -71,13 +80,32 @@ class RealtimeServer {
 
     // Memory monitoring endpoint
     this.app.get('/api/memory', (req, res) => {
-      const memoryReport = this.gcOptimizer.getMemoryReport();
+      const gcReport = this.gcOptimizer.getMemoryReport();
+      const memoryReport = this.memoryOptimizer.getMemoryReport();
       res.json({
-        ...memoryReport,
+        gc: gcReport,
+        optimizer: memoryReport,
         connections: this.connections.size,
-        users: this.userConnections.size,
-        recommendations: this.getMemoryRecommendations(memoryReport)
+        users: this.userConnections.size
       });
+    });
+
+    // Memory optimization trigger endpoint
+    this.app.post('/api/memory/optimize', (req, res) => {
+      try {
+        this.memoryOptimizer.performMajorCleanup();
+        res.json({
+          success: true,
+          message: 'Memory optimization completed',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: 'Memory optimization failed',
+          error: error.message
+        });
+      }
     });
 
     logger.info('Express application setup complete');

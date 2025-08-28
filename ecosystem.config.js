@@ -2,8 +2,8 @@ module.exports = {
   apps: [{
     name: 'mechamap-realtime',
     script: './src/app.js',
-    instances: 2,
-    exec_mode: 'cluster',
+    instances: 1,
+    exec_mode: 'fork',
 
     // Environment files
     env: {
@@ -22,15 +22,15 @@ module.exports = {
     monitoring: true,
     pmx: true,
 
-    // Auto-restart configuration - Aggressive memory management
-    max_memory_restart: '512M',
+    // Auto-restart configuration - Increased memory limit
+    max_memory_restart: '1024M',
     min_uptime: '10s',
     max_restarts: 15,
     autorestart: true,
     watch: false,
 
     // Memory monitoring
-    memory_limit: '512M',
+    memory_limit: '1024M',
     kill_timeout: 3000,
 
     // Logging
@@ -44,7 +44,7 @@ module.exports = {
     listen_timeout: 3000,
 
     // Environment-specific settings - Optimized for 4GB VPS
-    node_args: '--max-old-space-size=512 --optimize-for-size --expose-gc',
+    node_args: '--max-old-space-size=1024 --optimize-for-size --expose-gc --gc-interval=100',
 
     // Health monitoring
     health_check_grace_period: 3000,
