@@ -449,6 +449,127 @@ const socket = io('https://realtime.mechamap.com');
 socket.emit('authenticate', { token: 'sanctum_token' });
 ```
 
+## 🌐 **Translation API**
+
+### **POST /api/translate**
+Translate text or HTML content between languages.
+
+**Request Body:**
+```json
+{
+  "sourceLanguage": "vi",
+  "targetLanguage": "en",
+  "content": "Xin chào, tôi là một lập trình viên",
+  "contentType": "text"
+}
+```
+
+**Parameters:**
+- `sourceLanguage` (string): Source language code ('auto' for auto-detection)
+- `targetLanguage` (string, required): Target language code
+- `content` (string, required): Content to translate (max 5000 characters)
+- `contentType` (string, optional): 'text' or 'html' (default: 'text')
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Translation completed successfully",
+  "data": {
+    "originalText": "Xin chào, tôi là một lập trình viên",
+    "translatedText": "Hello, I'm a programmer",
+    "sourceLanguage": "vi",
+    "targetLanguage": "en",
+    "detectedLanguage": "vi"
+  }
+}
+```
+
+**HTML Translation Example:**
+```json
+{
+  "sourceLanguage": "en",
+  "targetLanguage": "vi",
+  "content": "<p>Hello <strong>world</strong>!</p>",
+  "contentType": "html"
+}
+```
+
+### **POST /api/detect-language**
+Detect the language of text content.
+
+**Request Body:**
+```json
+{
+  "content": "Bonjour, comment allez-vous?"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Language detection completed successfully",
+  "data": {
+    "content": "Bonjour, comment allez-vous?",
+    "detectedLanguage": "fr"
+  }
+}
+```
+
+### **GET /api/supported-languages**
+Get list of supported languages for translation.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Supported languages retrieved successfully",
+  "data": {
+    "sourceLanguages": ["auto", "af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg", "ca", "ceb", "ny", "zh", "zh-cn", "zh-tw", "co", "hr", "cs", "da", "nl", "en", "eo", "et", "tl", "fi", "fr", "fy", "gl", "ka", "de", "el", "gu", "ht", "ha", "haw", "iw", "he", "hi", "hmn", "hu", "is", "ig", "id", "ga", "it", "ja", "jw", "kn", "kk", "km", "ko", "ku", "ky", "lo", "la", "lv", "lt", "lb", "mk", "mg", "ms", "ml", "mt", "mi", "mr", "mn", "my", "ne", "no", "or", "ps", "fa", "pl", "pt", "pa", "ro", "ru", "sm", "gd", "sr", "st", "sn", "sd", "si", "sk", "sl", "so", "es", "su", "sw", "sv", "tg", "ta", "te", "th", "tr", "uk", "ur", "ug", "uz", "vi", "cy", "xh", "yi", "yo", "zu"],
+    "targetLanguages": ["af", "sq", "am", "ar", "hy", "az", "eu", "be", "bn", "bs", "bg", "ca", "ceb", "ny", "zh", "zh-cn", "zh-tw", "co", "hr", "cs", "da", "nl", "en", "eo", "et", "tl", "fi", "fr", "fy", "gl", "ka", "de", "el", "gu", "ht", "ha", "haw", "iw", "he", "hi", "hmn", "hu", "is", "ig", "id", "ga", "it", "ja", "jw", "kn", "kk", "km", "ko", "ku", "ky", "lo", "la", "lv", "lt", "lb", "mk", "mg", "ms", "ml", "mt", "mi", "mr", "mn", "my", "ne", "no", "or", "ps", "fa", "pl", "pt", "pa", "ro", "ru", "sm", "gd", "sr", "st", "sn", "sd", "si", "sk", "sl", "so", "es", "su", "sw", "sv", "tg", "ta", "te", "th", "tr", "uk", "ur", "ug", "uz", "vi", "cy", "xh", "yi", "yo", "zu"],
+    "total": 109
+  }
+}
+```
+
+### **Translation Error Codes**
+
+| Status Code | Error | Description |
+|-------------|-------|-------------|
+| 400 | Bad Request | Invalid parameters or validation failed |
+| 429 | Too Many Requests | Translation service rate limit exceeded |
+| 500 | Internal Server Error | Translation service temporarily unavailable |
+
+**Error Response Format:**
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": [
+    {
+      "field": "targetLanguage",
+      "message": "targetLanguage is required",
+      "value": null
+    }
+  ]
+}
+```
+
+### **Language Codes**
+
+Common language codes supported:
+- `en` - English
+- `vi` - Vietnamese
+- `fr` - French
+- `de` - German
+- `es` - Spanish
+- `ja` - Japanese
+- `ko` - Korean
+- `zh` - Chinese (Simplified)
+- `zh-tw` - Chinese (Traditional)
+- `auto` - Auto-detect (source language only)
+
 ## 🔗 **Related Documentation**
 
 - **[Deployment Guide](DEPLOYMENT.md)** - Production deployment
@@ -457,4 +578,4 @@ socket.emit('authenticate', { token: 'sanctum_token' });
 
 ---
 
-**API Documentation v1.0 - Updated for Production** 🚀
+**API Documentation v1.1 - Updated with Translation API** 🚀
