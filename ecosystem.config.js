@@ -8,11 +8,15 @@ module.exports = {
     // Environment files
     env: {
       NODE_ENV: 'development',
-      PORT: 3000
+      PORT: 3000,
+      CLUSTER_ENABLED: false,
+      CLUSTER_WORKERS: 1
     },
     env_production: {
       NODE_ENV: 'production',
-      PORT: 3000
+      PORT: 3000,
+      CLUSTER_ENABLED: false,
+      CLUSTER_WORKERS: 1
     },
 
     // Load environment file based on NODE_ENV
@@ -22,16 +26,16 @@ module.exports = {
     monitoring: true,
     pmx: true,
 
-    // Auto-restart configuration - Increased memory limit
-    max_memory_restart: '1024M',
-    min_uptime: '10s',
-    max_restarts: 15,
+    // Auto-restart configuration - Increased memory limit for 4GB VPS
+    max_memory_restart: '2048M',
+    min_uptime: '30s',
+    max_restarts: 10,
     autorestart: true,
     watch: false,
 
-    // Memory monitoring
-    memory_limit: '1024M',
-    kill_timeout: 3000,
+    // Memory monitoring - More reasonable limits
+    memory_limit: '2048M',
+    kill_timeout: 5000,
 
     // Logging
     log_file: './logs/combined.log',
@@ -40,14 +44,14 @@ module.exports = {
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
 
     // Advanced options
-    kill_timeout: 5000,
-    listen_timeout: 3000,
+    kill_timeout: 10000,
+    listen_timeout: 5000,
 
-    // Environment-specific settings - Optimized for 4GB VPS
-    node_args: '--max-old-space-size=1024 --optimize-for-size --expose-gc --gc-interval=100',
+    // Environment-specific settings - Optimized for 4GB VPS, single process
+    node_args: '--max-old-space-size=2048 --expose-gc',
 
     // Health monitoring
-    health_check_grace_period: 3000,
+    health_check_grace_period: 5000,
     health_check_fatal_exceptions: true,
 
     // Production-specific settings
@@ -55,7 +59,7 @@ module.exports = {
     time: true,
 
     // Error handling
-    exp_backoff_restart_delay: 100
+    exp_backoff_restart_delay: 1000
   }],
 
   deploy: {

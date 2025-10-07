@@ -29,19 +29,19 @@ class RealtimeServer {
     this.userConnections = new Map();
     this.monitoring = new MonitoringMiddleware();
 
-    // Initialize GC Optimizer
+    // Initialize GC Optimizer - Less aggressive for 4GB VPS
     this.gcOptimizer = new GCOptimizer({
-      gcInterval: 20000, // 20 seconds
-      memoryThreshold: 0.7, // 70%
-      forceGCThreshold: 0.8, // 80%
+      gcInterval: 120000, // 2 minutes
+      memoryThreshold: 0.8, // 80%
+      forceGCThreshold: 0.9, // 90%
       logger: logger
     });
 
-    // Initialize Memory Optimizer
+    // Initialize Memory Optimizer - More reasonable thresholds
     this.memoryOptimizer = new MemoryOptimizer({
-      warningThreshold: 0.7, // 70%
-      criticalThreshold: 0.8, // 80%
-      emergencyThreshold: 0.9, // 90%
+      warningThreshold: 0.75, // 75%
+      criticalThreshold: 0.85, // 85%
+      emergencyThreshold: 0.95, // 95%
       logger: logger
     });
   }

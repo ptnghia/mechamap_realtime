@@ -18,23 +18,23 @@ const path = require('path');
 class MemoryOptimizer {
   constructor(options = {}) {
     this.options = {
-      // Memory thresholds
-      warningThreshold: options.warningThreshold || 0.7, // 70%
-      criticalThreshold: options.criticalThreshold || 0.8, // 80%
-      emergencyThreshold: options.emergencyThreshold || 0.9, // 90%
-      
-      // Cleanup intervals
-      minorCleanupInterval: options.minorCleanupInterval || 15000, // 15 seconds
-      majorCleanupInterval: options.majorCleanupInterval || 60000, // 1 minute
-      
+      // Memory thresholds - More reasonable for 4GB VPS
+      warningThreshold: options.warningThreshold || 0.75, // 75%
+      criticalThreshold: options.criticalThreshold || 0.85, // 85%
+      emergencyThreshold: options.emergencyThreshold || 0.95, // 95%
+
+      // Cleanup intervals - Less aggressive
+      minorCleanupInterval: options.minorCleanupInterval || 60000, // 1 minute
+      majorCleanupInterval: options.majorCleanupInterval || 300000, // 5 minutes
+
       // Connection limits
       maxConnections: options.maxConnections || 1000,
       connectionTimeout: options.connectionTimeout || 300000, // 5 minutes
-      
+
       // Cache settings
       maxCacheSize: options.maxCacheSize || 100,
       cacheTimeout: options.cacheTimeout || 600000, // 10 minutes
-      
+
       logger: options.logger || console
     };
     
@@ -65,10 +65,10 @@ class MemoryOptimizer {
       this.performMajorCleanup();
     }, this.options.majorCleanupInterval);
     
-    // Emergency cleanup when memory is critical
+    // Emergency cleanup when memory is critical - Less frequent
     setInterval(() => {
       this.checkEmergencyCleanup();
-    }, 5000); // Check every 5 seconds
+    }, 30000); // Check every 30 seconds
   }
   
   performMinorCleanup() {

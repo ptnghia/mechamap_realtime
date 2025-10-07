@@ -27,10 +27,10 @@ class ConnectionManager {
       duplicateConnections: 0
     };
 
-    // Configuration
+    // Configuration - More aggressive throttling
     this.maxConnectionsPerUser = config.maxConnectionsPerUser || 1;
     this.connectionThrottleWindow = config.connectionThrottleWindow || 60000; // 1 minute
-    this.maxConnectionAttemptsPerWindow = config.maxConnectionAttemptsPerWindow || 20; // Increased for testing
+    this.maxConnectionAttemptsPerWindow = config.maxConnectionAttemptsPerWindow || 5; // Reduced from 20 to 5
     this.connectionTimeout = config.connectionTimeout || 60000; // 60 seconds
 
     // Start cleanup interval
