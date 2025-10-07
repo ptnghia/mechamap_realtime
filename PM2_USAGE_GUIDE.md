@@ -1,28 +1,45 @@
-# PM2 Usage Guide - MechaMap Realtime Server
+# PM2 Usage Guide - MechaMap Realtime Server (Production Clustering)
 
-🔌 **Hướng dẫn sử dụng PM2 để quản lý MechaMap Realtime Server**
+� **Hướng dẫn sử dụng PM2 với clustering cho MechaMap Realtime Server**
 
-## 🚀 **Khởi động Server**
+## ⚡ **Production Setup (Recommended)**
 
-### Cách 1: Sử dụng script Windows
+### Khởi động Cluster (3 workers)
 ```bash
-# Chạy script khởi động
-scripts\start-pm2-windows.bat
+# Production mode với clustering
+pm2 start ecosystem.config.js --env production
+
+# Hoặc sử dụng npm script
+npm run pm2:start:production
+
+# Xóa development process (nếu có)
+pm2 delete mechamap-realtime-dev
 ```
 
-### Cách 2: Sử dụng PM2 trực tiếp
+### Kiểm tra Cluster Status
 ```bash
-# Development mode (mặc định)
+# Xem danh sách processes
+pm2 list
+
+# Kết quả mong đợi:
+# ┌────┬────────────────────────┬─────────┬─────────┬───────────┬──────────┐
+# │ id │ name                   │ mode    │ pid     │ status    │ memory   │
+# ├────┼────────────────────────┼─────────┼─────────┼───────────┼──────────┤
+# │ 1  │ mechamap-realtime-prod │ cluster │ 1234567 │ online    │ 100.0mb  │
+# │ 2  │ mechamap-realtime-prod │ cluster │ 1234568 │ online    │ 100.5mb  │
+# │ 3  │ mechamap-realtime-prod │ cluster │ 1234569 │ online    │ 101.9mb  │
+# └────┴────────────────────────┴─────────┴─────────┴───────────┴──────────┘
+```
+
+## 🔧 **Development Setup**
+
+### Single Process (Development)
+```bash
+# Development mode
 pm2 start ecosystem.config.js --only mechamap-realtime-dev
 
-# Production mode
-pm2 start ecosystem.config.js --only mechamap-realtime-prod
-```
-
-### Cách 3: Production mode
-```bash
-# Sử dụng script production
-scripts\start-pm2-production.bat
+# Hoặc sử dụng nodemon
+npm run dev
 ```
 
 ## 🛑 **Dừng Server**

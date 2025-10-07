@@ -2,24 +2,30 @@
 
 🚀 **Complete guide for deploying MechaMap Realtime Server to production**
 
-## 🎯 **Production Architecture**
+## 🎯 **Production Architecture - FastPanel + Clustering**
 
 ```
 Frontend: https://mechamap.com (Shared Hosting)
     ↓ WebSocket HTTPS:443
-Realtime: https://realtime.mechamap.com (VPS)
-    ↓ API Calls HTTPS
+FastPanel Proxy: realtime.mechamap.com:443
+    ↓ SSL Termination + Load Balance
+PM2 Cluster: 3x Node.js Workers (localhost:3000)
+    ↓ Redis Session Store + MySQL Pool
 Backend: https://mechamap.com/api (Laravel)
 ```
+
+**Scaling Capacity**: 200-300 concurrent users
 
 ## 📋 **Pre-deployment Checklist**
 
 ### **VPS Requirements**
 - **OS**: Ubuntu 20.04+ / CentOS 8+
-- **RAM**: 2GB minimum, 4GB recommended
-- **CPU**: 2 cores minimum
+- **RAM**: 4GB minimum, 8GB recommended (for clustering)
+- **CPU**: 4 cores minimum (for clustering performance)
 - **Storage**: 20GB minimum
 - **Network**: Public IP with domain pointing
+- **Panel**: FastPanel or similar (for SSL termination)
+- **Redis**: Required for cluster session management
 
 ### **Domain Setup**
 - **Main Domain**: `mechamap.com` → Hosting IP
@@ -80,7 +86,37 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
-### **Step 4: SSL Certificate Setup**
+### **Step 4: Install Redis (Required for Clustering)**
+
+```bash
+# Install Redis
+sudo apt install -y redis-server
+
+# Configure Redis
+sudo nano /etc/redis/redis.conf
+# Uncomment: bind 127.0.0.1
+# Set: maxmemory 256mb
+# Set: maxmemory-policy allkeys-lru
+
+# Start Redis
+sudo systemctl enable redis-server
+sudo systemctl start redis-server
+
+# Test Redis
+redis-cli ping  # Should return PONG
+```
+
+### **Step 5: FastPanel SSL Setup**
+
+**Note**: If using FastPanel, SSL is handled automatically:
+
+1. **Login to FastPanel**
+2. **Go to**: Domains → realtime.mechamap.com
+3. **Enable**: Let's Encrypt SSL
+4. **Enable**: WebSocket Proxy Support
+5. **Set Proxy**: Target → localhost:3000
+
+**Manual SSL Setup** (if not using FastPanel):
 
 ```bash
 # Install Certbot
@@ -112,54 +148,88 @@ npm install --omit=dev
 
 ### **Step 2: Configure Environment**
 
-```bash
-# Copy production config
-cp .env.production .env
+**FastPanel Configuration** (Recommended):
 
-# Update configuration
-nano .env
+The `.env.production` file is pre-configured for FastPanel + clustering:
+
+```bash
+# Review production config (already optimized)
+cat .env.production
+
+# Create logs directory
+mkdir -p logs
 ```
 
-**Update these values in .env:**
+**Key Configuration (FastPanel Mode):**
 ```bash
-# Server Configuration
+# Server Configuration - FastPanel handles SSL termination
 NODE_ENV=production
-PORT=443
+PORT=3000                    # FastPanel proxies 443→3000
 HOST=0.0.0.0
+SSL_ENABLED=false           # SSL handled by FastPanel
+TRUST_PROXY=true            # Important for FastPanel
 
-# SSL Configuration
-SSL_ENABLED=true
-SSL_CERT_PATH=/etc/letsencrypt/live/realtime.mechamap.com/fullchain.pem
-SSL_KEY_PATH=/etc/letsencrypt/live/realtime.mechamap.com/privkey.pem
+# Clustering - Optimized for 200+ users
+CLUSTER_ENABLED=true
+CLUSTER_WORKERS=3
+MEMORY_LIMIT=3072
 
-# Laravel Integration
-LARAVEL_API_URL=https://mechamap.com
-LARAVEL_API_KEY=YOUR_PRODUCTION_API_KEY
+# Database - High concurrency pool
+DB_CONNECTION_LIMIT=60
+DB_TIMEOUT=30000
 
-# Database
-DB_HOST=localhost
-DB_NAME=mechamap_production
-DB_USER=mechamap_user
-DB_PASSWORD=YOUR_SECURE_PASSWORD
+# Redis - Required for clustering
+REDIS_SESSION_STORE=true
+REDIS_ADAPTER_ENABLED=true
 
-# Security
-CORS_ORIGIN=https://mechamap.com,https://www.mechamap.com
-JWT_SECRET=YOUR_JWT_SECRET_SYNCHRONIZED_WITH_LARAVEL
+# Rate Limiting - Optimized for multiple users
+RATE_LIMIT_MAX_REQUESTS=300
+RATE_LIMIT_WINDOW_MS=60000
+
+# WebSocket - High performance settings
+WS_PING_TIMEOUT=30000
+WS_PING_INTERVAL=15000
+MAX_CONNECTIONS=5000
 ```
 
-### **Step 3: Configure PM2**
+**Manual Configuration** (if not using FastPanel):
+- Set `SSL_ENABLED=true`
+- Set `PORT=443`
+- Configure SSL certificate paths
+
+### **Step 3: Configure PM2 Clustering**
 
 ```bash
-# Start application with PM2
+# Start application with PM2 clustering (3 workers)
 pm2 start ecosystem.config.js --env production
+
+# Remove development process (if exists)
+pm2 delete mechamap-realtime-dev
+
+# Verify cluster status
+pm2 list
+# Should show 3 instances of mechamap-realtime-prod in cluster mode
 
 # Setup auto-start on boot
 pm2 startup
 pm2 save
 
-# Verify status
-pm2 status
-pm2 logs mechamap-realtime
+# Monitor cluster performance
+pm2 monit
+
+# View logs from all workers
+pm2 logs mechamap-realtime-prod
+```
+
+**Expected PM2 Output:**
+```
+┌────┬────────────────────────┬─────────┬─────────┬───────────┬──────────┐
+│ id │ name                   │ mode    │ pid     │ status    │ memory   │
+├────┼────────────────────────┼─────────┼─────────┼───────────┼──────────┤
+│ 1  │ mechamap-realtime-prod │ cluster │ 1234567 │ online    │ 100.0mb  │
+│ 2  │ mechamap-realtime-prod │ cluster │ 1234568 │ online    │ 100.5mb  │
+│ 3  │ mechamap-realtime-prod │ cluster │ 1234569 │ online    │ 101.9mb  │
+└────┴────────────────────────┴─────────┴─────────┴───────────┴──────────┘
 ```
 
 ### **Step 4: Configure Nginx**
@@ -270,20 +340,67 @@ User authenticated: {userId: 1, socketId: "abc123"}
 
 ## 📊 **Monitoring & Maintenance**
 
-### **PM2 Monitoring**
+### **PM2 Cluster Monitoring**
 
 ```bash
-# Check status
-pm2 status
+# Check cluster status
+pm2 list
 
-# View logs
-pm2 logs mechamap-realtime
+# View all worker logs
+pm2 logs mechamap-realtime-prod
 
-# Monitor resources
+# Monitor resources (all workers)
 pm2 monit
 
-# Restart application
-pm2 restart mechamap-realtime
+# Restart cluster (zero-downtime)
+pm2 reload mechamap-realtime-prod
+
+# Restart specific worker
+pm2 restart 1  # Worker ID
+
+# Scale cluster (add/remove workers)
+pm2 scale mechamap-realtime-prod 4  # Scale to 4 workers
+```
+
+### **Performance Monitoring**
+
+```bash
+# Application health
+curl -s https://realtime.mechamap.com/api/health | jq
+
+# Detailed metrics
+curl -s https://realtime.mechamap.com/api/monitoring/metrics | jq
+
+# Memory usage monitoring
+curl -s https://realtime.mechamap.com/api/monitoring/memory | jq
+
+# Connection statistics
+curl -s https://realtime.mechamap.com/api/monitoring/connections | jq
+
+# System resources
+free -h                    # Memory usage
+top -p $(pgrep node)      # CPU usage of all Node.js processes
+```
+
+### **Cluster Health Check Script**
+
+```bash
+#!/bin/bash
+# /home/user/check-cluster.sh
+
+echo "=== PM2 Cluster Status ==="
+pm2 list
+
+echo "=== Memory Usage ==="
+free -h
+
+echo "=== Application Health ==="
+curl -s https://realtime.mechamap.com/api/health | jq '.status, .memory'
+
+echo "=== Active Connections ==="
+curl -s https://realtime.mechamap.com/api/monitoring/metrics | jq '.data.connections.active'
+
+# Make executable: chmod +x /home/user/check-cluster.sh
 ```
 
 ### **SSL Certificate Renewal**

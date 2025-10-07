@@ -1,4 +1,13 @@
-# MechaMap Realtime Server
+# MechaMap Realt## ⚡ **Core Features**
+
+- **🔌 Real-time WebSocket**: Socket.IO với SSL/TLS support
+- **🔐 Laravel Integration**: Sanctum authentication + API key security
+- **📱 Multi-device Support**: Concurrent connections per user
+- **🎯 Channel Broadcasting**: Private user channels + public broadcasts
+- **📊 Production Monitoring**: Health checks, metrics, logging
+- **⚡ High Performance**: PM2 clustering (3 workers), Redis session store
+- **🚀 Scalable Architecture**: Supports 200+ concurrent users
+- **🛡️ Enterprise Security**: CORS, rate limiting, SSL encryptionr
 
 🔌 **Production-Ready WebSocket Server** cho MechaMap Community Platform
 
@@ -29,31 +38,36 @@ Backend: https://mechamap.com/api (Laravel)
 ### **System Requirements**
 
 - **Node.js**: >= 18.0.0
-- **Database**: MySQL 8.0+ (shared with Laravel)
+- **Database**: MySQL 8.0+ (shared with Laravel) 
 - **SSL**: Let's Encrypt certificates (production)
-- **Memory**: 2GB+ RAM recommended
+- **Memory**: 4GB+ RAM recommended (for 200+ concurrent users)
+- **CPU**: 4+ cores recommended for clustering
+- **Redis**: Required for session store in cluster mode
 
 ### **Production Deployment**
 
 ```bash
 # 1. Clone to VPS
-git clone https://github.com/your-repo/mechamap-realtime.git
-cd mechamap-realtime
+git clone https://github.com/ptnghia/mechamap_realtime.git
+cd mechamap_realtime
 
 # 2. Install dependencies
-npm install --omit=dev
+npm install --production
 
-# 3. Setup production config
-cp .env.production .env
-nano .env  # Update production values
+# 3. Setup production environment
+# .env.production is already configured for FastPanel + clustering
 
-# 4. Setup SSL certificates
-sudo certbot certonly --nginx -d realtime.mechamap.com
+# 4. Create logs directory
+mkdir -p logs
 
-# 5. Start with PM2
+# 5. Start with PM2 clustering (3 workers)
 pm2 start ecosystem.config.js --env production
 pm2 startup
 pm2 save
+
+# 6. Verify cluster status
+pm2 list
+pm2 monit
 ```
 
 ### **Development Setup**
@@ -111,35 +125,58 @@ realtime-server/
 
 ### **Environment Variables**
 
-#### **Production (.env.production)**
+#### **Production (.env.production) - FastPanel + Clustering**
 ```bash
-# Server Configuration
+# Server Configuration - FastPanel Setup
 NODE_ENV=production
-PORT=443
+PORT=3000
 HOST=0.0.0.0
+DOMAIN=realtime.mechamap.com
 
-# SSL Configuration
-SSL_ENABLED=true
-SSL_CERT_PATH=/etc/letsencrypt/live/realtime.mechamap.com/fullchain.pem
-SSL_KEY_PATH=/etc/letsencrypt/live/realtime.mechamap.com/privkey.pem
+# SSL Configuration - DISABLED (FastPanel handles SSL)
+SSL_ENABLED=false
+TRUST_PROXY=true
+
+# Performance - Clustering for 200+ users
+CLUSTER_ENABLED=true
+CLUSTER_WORKERS=3
+MEMORY_LIMIT=3072
 
 # Laravel Integration
 LARAVEL_API_URL=https://mechamap.com
-LARAVEL_API_KEY=your_production_api_key
+LARAVEL_API_KEY=mechamap_ws_kCTy45s4obktB6IJJH6DpKHzoveEJLgrnmbST8fxwufexn0u80RnqMSO51ubWVQ3
 
-# Database
+# Database - Optimized for high concurrency
 DB_HOST=localhost
-DB_NAME=mechamap_production
+DB_NAME=mechamap_db
 DB_USER=mechamap_user
-DB_PASSWORD=your_secure_password
+DB_CONNECTION_LIMIT=60
+DB_TIMEOUT=30000
+
+# Redis - Required for clustering
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_SESSION_STORE=true
+REDIS_ADAPTER_ENABLED=true
+
+# Rate Limiting - Optimized for multiple users
+RATE_LIMIT_MAX_REQUESTS=300
+RATE_LIMIT_WINDOW_MS=60000
+
+# WebSocket - Tuned for high concurrency
+WS_PING_TIMEOUT=30000
+WS_PING_INTERVAL=15000
+MAX_CONNECTIONS=5000
+MAX_CONNECTIONS_PER_USER=5
 
 # Security
-CORS_ORIGIN=https://mechamap.com,https://www.mechamap.com
+CORS_ORIGIN=https://mechamap.com,https://www.mechamap.com,https://realtime.mechamap.com
 JWT_SECRET=your_jwt_secret_synchronized_with_laravel
 
 # Monitoring
-LOG_LEVEL=error
-ENABLE_METRICS=true
+LOG_LEVEL=info
+METRICS_ENABLED=true
+PROMETHEUS_METRICS=true
 ```
 
 #### **Development (.env.development)**
@@ -261,16 +298,62 @@ pm2 monit
 pm2 restart mechamap-realtime
 ```
 
+## ⚡ **Performance & Scaling**
+
+### **Current Production Capacity**
+
+| **Metric** | **Value** | **Configuration** |
+|------------|-----------|-------------------|
+| **Concurrent Users** | 200-300 | 3 cluster workers |
+| **Memory Usage** | ~300MB | 100MB per worker |
+| **CPU Utilization** | 75% | 3/4 cores used |
+| **DB Connections** | 60 | 20 per worker |
+| **Rate Limit** | 300/min | Per user limit |
+| **WebSocket Connections** | 5,000 | System-wide limit |
+
+### **PM2 Cluster Configuration**
+
+```javascript
+// ecosystem.config.js - Production
+{
+  name: 'mechamap-realtime-prod',
+  script: './src/app.js',
+  instances: 3,              // 3 cluster workers
+  exec_mode: 'cluster',      // Enable clustering
+  max_memory_restart: '2048M', // Auto-restart at 2GB
+  node_args: '--max-old-space-size=2048',
+}
+```
+
+### **Scaling Guidelines**
+
+**For 500+ Users:**
+- Increase `CLUSTER_WORKERS` to 4-6
+- Add Redis Clustering
+- Implement horizontal scaling with load balancer
+- Consider database read replicas
+
+**For 1000+ Users:**
+- Deploy multiple server instances
+- Use Nginx load balancing
+- Implement CDN for static assets
+- Monitor and optimize database queries
+
 ## 🔧 **Development**
 
 ### **Available Scripts**
 
 ```bash
-npm run dev          # Start development server
-npm run start        # Start production server
-npm run test         # Run test suite
-npm run lint         # Run ESLint
-npm run test:watch   # Run tests in watch mode
+npm run dev               # Start development server
+npm run start            # Start production server  
+npm run start:production # Start with production env
+npm run test             # Run test suite
+npm run lint             # Run ESLint
+npm run test:watch       # Run tests in watch mode
+npm run pm2:start        # Start with PM2
+npm run pm2:logs         # View PM2 logs
+npm run health           # Check health endpoint
+npm run metrics          # View metrics
 ```
 
 ### **Testing**

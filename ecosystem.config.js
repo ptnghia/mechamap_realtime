@@ -42,11 +42,11 @@ module.exports = {
     time: true,
     exp_backoff_restart_delay: 100
   }, {
-    // Production Configuration - Optimized for VPS deployment
+    // Production Configuration - Optimized for 200+ concurrent users
     name: 'mechamap-realtime-prod',
     script: './src/app.js',
-    instances: 1,
-    exec_mode: 'fork',
+    instances: 3,
+    exec_mode: 'cluster',
 
     // Environment
     env_production: {
