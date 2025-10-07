@@ -3,11 +3,11 @@ const v8 = require('v8');
 
 class GCOptimizer {
   constructor(options = {}) {
-    this.gcInterval = options.gcInterval || 30000; // 30 seconds
-    this.memoryThreshold = options.memoryThreshold || 0.8; // 80%
-    this.forceGCThreshold = options.forceGCThreshold || 0.9; // 90%
+    this.gcInterval = options.gcInterval || 120000; // 2 minutes - Less frequent
+    this.memoryThreshold = options.memoryThreshold || 0.8; // 80% - Higher threshold
+    this.forceGCThreshold = options.forceGCThreshold || 0.9; // 90% - Higher threshold
     this.logger = options.logger || console;
-    
+
     this.startMonitoring();
   }
   

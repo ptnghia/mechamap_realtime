@@ -9,7 +9,9 @@ module.exports = {
     // Environment
     env: {
       NODE_ENV: 'development',
-      PORT: 3000
+      PORT: 3000,
+      CLUSTER_ENABLED: false,
+      CLUSTER_WORKERS: 1
     },
 
     // Development settings
@@ -40,45 +42,55 @@ module.exports = {
     time: true,
     exp_backoff_restart_delay: 100
   }, {
-    // Production Configuration
+    // Production Configuration - Optimized for VPS deployment
     name: 'mechamap-realtime-prod',
     script: './src/app.js',
-    instances: 2,
-    exec_mode: 'cluster',
+    instances: 1,
+    exec_mode: 'fork',
 
     // Environment
-    env: {
+    env_production: {
       NODE_ENV: 'production',
-      PORT: 3000
+      PORT: 3000,
+      CLUSTER_ENABLED: false,
+      CLUSTER_WORKERS: 1
     },
 
-    // Production memory settings
-    max_memory_restart: '512M',
-    min_uptime: '10s',
-    max_restarts: 15,
+    // Auto-restart configuration - Optimized for 4GB VPS
+    max_memory_restart: '2048M',
+    min_uptime: '30s',
+    max_restarts: 10,
     autorestart: true,
     watch: false,
-    memory_limit: '512M',
 
-    // Production node args
-    node_args: '--max-old-space-size=512 --optimize-for-size --expose-gc',
+    // Memory monitoring - More reasonable limits
+    memory_limit: '2048M',
+    kill_timeout: 10000,
 
     // Logging
-    log_file: './logs/prod-combined.log',
-    out_file: './logs/prod-out.log',
-    error_file: './logs/prod-error.log',
+    log_file: './logs/combined.log',
+    out_file: './logs/out.log',
+    error_file: './logs/error.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
 
-    // Production optimizations
-    monitoring: true,
-    pmx: true,
-    kill_timeout: 5000,
-    listen_timeout: 3000,
-    health_check_grace_period: 3000,
+    // Advanced options
+    listen_timeout: 5000,
+
+    // Environment-specific settings - Optimized for 4GB VPS, single process
+    node_args: '--max-old-space-size=2048 --expose-gc',
+
+    // Health monitoring
+    health_check_grace_period: 5000,
     health_check_fatal_exceptions: true,
     merge_logs: true,
     time: true,
-    exp_backoff_restart_delay: 100
+
+    // Error handling
+    exp_backoff_restart_delay: 1000,
+
+    // Production optimizations
+    monitoring: true,
+    pmx: true
   }],
 
   deploy: {

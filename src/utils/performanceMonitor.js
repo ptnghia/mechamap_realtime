@@ -116,9 +116,9 @@ class PerformanceMonitor {
     });
     socketData.lastActivity = timestamp;
 
-    // Limit event history per socket
-    if (socketData.events.length > 100) {
-      socketData.events = socketData.events.slice(-50);
+    // Limit event history per socket - More aggressive cleanup
+    if (socketData.events.length > 50) {
+      socketData.events = socketData.events.slice(-25);
     }
   }
 
@@ -167,12 +167,12 @@ class PerformanceMonitor {
       });
     }
 
-    // Limit database metrics storage
-    if (this.metrics.database.size > 1000) {
+    // Limit database metrics storage - More aggressive cleanup
+    if (this.metrics.database.size > 500) {
       const oldestEntries = Array.from(this.metrics.database.entries())
         .sort((a, b) => a[1].timestamp - b[1].timestamp)
-        .slice(0, 500);
-      
+        .slice(0, 250);
+
       oldestEntries.forEach(([key]) => {
         this.metrics.database.delete(key);
       });
@@ -186,9 +186,9 @@ class PerformanceMonitor {
     const now = Date.now();
     const uptime = now - this.startTime;
     
-    // Calculate response time statistics
+    // Calculate response time statistics - Reduced time window
     const recentResponses = Array.from(this.metrics.responses.values())
-      .filter(r => now - r.timestamp < 300000) // Last 5 minutes
+      .filter(r => now - r.timestamp < 180000) // Last 3 minutes
       .map(r => r.duration);
 
     const responseStats = this.calculateStats(recentResponses);
@@ -203,9 +203,9 @@ class PerformanceMonitor {
       averageSessionDuration: this.calculateAverageSessionDuration()
     };
 
-    // Calculate database statistics
+    // Calculate database statistics - Reduced time window
     const recentQueries = Array.from(this.metrics.database.values())
-      .filter(q => now - q.timestamp < 300000); // Last 5 minutes
+      .filter(q => now - q.timestamp < 180000); // Last 3 minutes
 
     const dbStats = {
       queryCount: recentQueries.length,
@@ -346,9 +346,9 @@ class PerformanceMonitor {
         percentage: memoryPercentage
       });
 
-      // Keep only last 100 memory readings
-      if (this.metrics.memory.length > 100) {
-        this.metrics.memory = this.metrics.memory.slice(-50);
+      // Keep only last 50 memory readings - More aggressive cleanup
+      if (this.metrics.memory.length > 50) {
+        this.metrics.memory = this.metrics.memory.slice(-25);
       }
 
       // Check memory threshold

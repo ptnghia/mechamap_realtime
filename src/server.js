@@ -18,6 +18,7 @@ const { getCorsConfig, socketCorsConfig, corsLogger } = require('./config/cors')
 const errorHandler = require('./utils/errorHandler');
 const performanceMonitor = require('./utils/performanceMonitor');
 const GCOptimizer = require('../scripts/gc-optimizer');
+const MemoryOptimizer = require('../scripts/memory-optimizer');
 
 class RealtimeServer {
   constructor() {
@@ -28,11 +29,19 @@ class RealtimeServer {
     this.userConnections = new Map();
     this.monitoring = new MonitoringMiddleware();
 
-    // Initialize GC Optimizer
+    // Initialize GC Optimizer - Less aggressive for 4GB VPS
     this.gcOptimizer = new GCOptimizer({
-      gcInterval: 30000, // 30 seconds
-      memoryThreshold: 0.75, // 75%
-      forceGCThreshold: 0.85, // 85%
+      gcInterval: 120000, // 2 minutes
+      memoryThreshold: 0.8, // 80%
+      forceGCThreshold: 0.9, // 90%
+      logger: logger
+    });
+
+    // Initialize Memory Optimizer - More reasonable thresholds
+    this.memoryOptimizer = new MemoryOptimizer({
+      warningThreshold: 0.75, // 75%
+      criticalThreshold: 0.85, // 85%
+      emergencyThreshold: 0.95, // 95%
       logger: logger
     });
   }
@@ -71,13 +80,32 @@ class RealtimeServer {
 
     // Memory monitoring endpoint
     this.app.get('/api/memory', (req, res) => {
-      const memoryReport = this.gcOptimizer.getMemoryReport();
+      const gcReport = this.gcOptimizer.getMemoryReport();
+      const memoryReport = this.memoryOptimizer.getMemoryReport();
       res.json({
-        ...memoryReport,
+        gc: gcReport,
+        optimizer: memoryReport,
         connections: this.connections.size,
-        users: this.userConnections.size,
-        recommendations: this.getMemoryRecommendations(memoryReport)
+        users: this.userConnections.size
       });
+    });
+
+    // Memory optimization trigger endpoint
+    this.app.post('/api/memory/optimize', (req, res) => {
+      try {
+        this.memoryOptimizer.performMajorCleanup();
+        res.json({
+          success: true,
+          message: 'Memory optimization completed',
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: 'Memory optimization failed',
+          error: error.message
+        });
+      }
     });
 
     logger.info('Express application setup complete');

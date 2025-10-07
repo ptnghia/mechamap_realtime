@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/app.js",
     "start:production": "cross-env NODE_ENV=production node src/app.js",
+    "start:optimized": "./scripts/start-optimized.sh",
     "dev": "nodemon src/app.js",
     "env:check": "node scripts/load-env.js",
     "env:check:production": "cross-env NODE_ENV=production node scripts/load-env.js",
@@ -27,7 +28,9 @@
     "health": "curl -f http://localhost:3000/api/health || exit 1",
     "health:monitoring": "curl -f http://localhost:3000/api/monitoring/health || exit 1",
     "metrics": "curl -s http://localhost:3000/api/monitoring/metrics | jq",
-    "prometheus": "curl -s http://localhost:3000/api/monitoring/prometheus"
+    "prometheus": "curl -s http://localhost:3000/api/monitoring/prometheus",
+    "memory:check": "curl -s https://realtime.mechamap.com/api/memory | jq",
+    "memory:optimize": "curl -X POST https://realtime.mechamap.com/api/memory/optimize"
   },
   "keywords": [
     "websocket",
@@ -44,8 +47,9 @@
   "author": "MechaMap Development Team",
   "license": "MIT",
   "dependencies": {
-    "axios": "^1.6.2",
+    "axios": "^1.11.0",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.1.2",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -62,7 +66,8 @@
     "redis": "^4.6.10",
     "socket.io": "^4.7.5",
     "uuid": "^9.0.1",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

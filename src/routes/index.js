@@ -6,6 +6,14 @@ const logger = require('../utils/logger');
 const broadcastRoutes = require('./broadcast');
 const monitoringRoutes = require('./monitoring');
 
+// Translation services
+const translationService = require('../services/TranslationService');
+const {
+  validateTranslateRequest,
+  validateDetectLanguageRequest,
+  getSupportedLanguages
+} = require('../validation/translationValidation');
+
 /**
  * Setup Express routes
  */
@@ -130,6 +138,9 @@ function setupRoutes(app, monitoring = null) {
 
   // Status endpoint
   apiRouter.get('/status', (req, res) => {
+    // In production, SSL is handled by reverse proxy
+    const sslStatus = config.nodeEnv === 'production' ? true : config.ssl.enabled;
+
     res.json({
       service: 'MechaMap Realtime Server',
       status: 'running',
@@ -137,10 +148,11 @@ function setupRoutes(app, monitoring = null) {
       version: require('../../package.json').version,
       environment: config.nodeEnv,
       features: {
-        ssl: config.ssl.enabled,
+        ssl: sslStatus,
         clustering: config.performance.clusterEnabled,
         metrics: config.monitoring.metricsEnabled,
-        redis: !!config.redis.host
+        redis: !!config.redis.host,
+        proxy: config.nodeEnv === 'production' ? 'nginx-reverse-proxy' : 'none'
       }
     });
   });
@@ -169,11 +181,22 @@ function setupRoutes(app, monitoring = null) {
 
   // Root endpoint
   app.get('/', (req, res) => {
+    // Determine the correct WebSocket URL based on environment
+    let websocketUrl;
+    if (config.nodeEnv === 'production') {
+      // In production, use the configured domain with SSL
+      websocketUrl = `wss://${config.domain}`;
+    } else {
+      // In development, use localhost with SSL config
+      websocketUrl = `${config.ssl.enabled ? 'wss' : 'ws'}://localhost:${config.port}`;
+    }
+
     res.json({
       service: 'MechaMap Realtime Server',
       message: 'WebSocket server is running',
       version: require('../../package.json').version,
       timestamp: new Date().toISOString(),
+      environment: config.nodeEnv,
       endpoints: {
         health: '/api/health',
         status: '/api/status',
@@ -181,7 +204,7 @@ function setupRoutes(app, monitoring = null) {
         broadcast: 'POST /api/broadcast'
       },
       websocket: {
-        url: `${config.ssl.enabled ? 'wss' : 'ws'}://localhost:${config.port}`,
+        url: websocketUrl,
         transports: config.websocket.transports
       }
     });
@@ -284,13 +307,136 @@ function setupRoutes(app, monitoring = null) {
         health: '/api/health',
         status: '/api/status',
         metrics: '/api/metrics',
-        broadcast: 'POST /api/broadcast'
+        broadcast: 'POST /api/broadcast',
+        translate: 'POST /api/translate',
+        detectLanguage: 'POST /api/detect-language',
+        supportedLanguages: 'GET /api/supported-languages'
       },
       websocket: {
         url: `wss://realtime.mechamap.com`,
         transports: ['websocket', 'polling']
       }
     });
+  });
+
+  // Translation endpoints
+
+  // POST /api/translate - Translate text or HTML content
+  apiRouter.post('/translate', async (req, res) => {
+    try {
+      // Validate request
+      const validation = validateTranslateRequest(req.body);
+      if (!validation.isValid) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: 'Validation failed',
+          errors: validation.errors
+        });
+      }
+
+      const { sourceLanguage, targetLanguage, content, contentType } = validation.data;
+
+      // Perform translation
+      const result = await translationService.translate(
+        content,
+        sourceLanguage,
+        targetLanguage,
+        contentType
+      );
+
+      res.json({
+        success: true,
+        message: 'Translation completed successfully',
+        data: result
+      });
+
+    } catch (error) {
+      logger.error('Translation endpoint error:', error);
+
+      // Handle specific error types
+      if (error.message.includes('Invalid') || error.message.includes('required')) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      if (error.message.includes('rate limit') || error.message.includes('quota')) {
+        return res.status(StatusCodes.TOO_MANY_REQUESTS).json({
+          success: false,
+          message: 'Translation service rate limit exceeded. Please try again later.'
+        });
+      }
+
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Translation service temporarily unavailable'
+      });
+    }
+  });
+
+  // POST /api/detect-language - Detect language of text
+  apiRouter.post('/detect-language', async (req, res) => {
+    try {
+      // Validate request
+      const validation = validateDetectLanguageRequest(req.body);
+      if (!validation.isValid) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: 'Validation failed',
+          errors: validation.errors
+        });
+      }
+
+      const { content } = validation.data;
+
+      // Detect language
+      const detectedLanguage = await translationService.detectLanguage(content);
+
+      res.json({
+        success: true,
+        message: 'Language detection completed successfully',
+        data: {
+          content: content,
+          detectedLanguage: detectedLanguage
+        }
+      });
+
+    } catch (error) {
+      logger.error('Language detection endpoint error:', error);
+
+      if (error.message.includes('required') || error.message.includes('Invalid')) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Language detection service temporarily unavailable'
+      });
+    }
+  });
+
+  // GET /api/supported-languages - Get list of supported languages
+  apiRouter.get('/supported-languages', (req, res) => {
+    try {
+      const languages = getSupportedLanguages();
+
+      res.json({
+        success: true,
+        message: 'Supported languages retrieved successfully',
+        data: languages
+      });
+
+    } catch (error) {
+      logger.error('Supported languages endpoint error:', error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: 'Unable to retrieve supported languages'
+      });
+    }
   });
 
   // Mount API routes
