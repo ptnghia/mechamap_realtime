@@ -1,0 +1,52 @@
+{
+  "project": {
+    "id": 70,
+    "name": "MechaMap Realtime",
+    "description": "Production-ready WebSocket server for MechaMap Community Platform with Laravel Sanctum integration",
+    "version": "1.0.0",
+    "status": "active",
+    "created_date": "2025-11-10",
+    "last_updated": "2025-11-10"
+  },
+  "technical": {
+    "framework": "Node.js + Socket.IO",
+    "language": ["JavaScript", "Node.js"],
+    "database": ["MySQL", "Redis"],
+    "deployment": "host-based"
+  },
+  "ports": {
+    "backend": 7000,
+    "websocket": 7000,
+    "monitoring": 7070,
+    "health": 7080
+  },
+  "environment": {
+    "node_version": ">=18.0.0",
+    "pm2": true,
+    "clustering": true,
+    "workers": 3
+  },
+  "urls": {
+    "local": "http://localhost:7000",
+    "production": "https://realtime.mechamap.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ptnghia/mechamap_realtime.git"
+  },
+  "documentation": {
+    "readme": "README.md",
+    "deployment": "docs/DEPLOYMENT.md",
+    "api": "docs/API.md",
+    "pm2_guide": "PM2_USAGE_GUIDE.md"
+  },
+  "features": [
+    "Real-time WebSocket with Socket.IO",
+    "Laravel Sanctum authentication integration",
+    "Multi-device support",
+    "PM2 clustering (3 workers)",
+    "Production monitoring and health checks",
+    "SSL/TLS support",
+    "Redis session store"
+  ]
+}

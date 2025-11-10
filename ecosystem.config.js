@@ -51,20 +51,20 @@ module.exports = {
     // Environment
     env_production: {
       NODE_ENV: 'production',
-      PORT: 3000,
+      PORT: 7000,
       CLUSTER_ENABLED: false,
       CLUSTER_WORKERS: 1
     },
 
-    // Auto-restart configuration - Optimized for 4GB VPS
-    max_memory_restart: '2048M',
+    // Auto-restart configuration - Optimized for 8GB VPS
+    max_memory_restart: '256M',
     min_uptime: '30s',
     max_restarts: 10,
     autorestart: true,
     watch: false,
 
     // Memory monitoring - More reasonable limits
-    memory_limit: '2048M',
+    memory_limit: '256M',
     kill_timeout: 10000,
 
     // Logging
@@ -76,8 +76,8 @@ module.exports = {
     // Advanced options
     listen_timeout: 5000,
 
-    // Environment-specific settings - Optimized for 4GB VPS, single process
-    node_args: '--max-old-space-size=2048 --expose-gc',
+    // Environment-specific settings - Optimized for 8GB VPS with 3 workers
+    node_args: '--max-old-space-size=256 --expose-gc --gc-interval=100',
 
     // Health monitoring
     health_check_grace_period: 5000,
